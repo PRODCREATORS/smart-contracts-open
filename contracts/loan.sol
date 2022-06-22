@@ -107,10 +107,7 @@ contract SilentLoan is ReentrancyGuard, Ownable {
     }
 
     // Owner functions
-     function setCollateralRate(uint256 _newRate) external onlyOwner {
-        c_r = _newRate;
-    }
-
+   
     function setSynthLp(address _newAddress) external onlyOwner {
         SynthLp = IERC20(_newAddress);
     }
