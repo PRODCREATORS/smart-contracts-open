@@ -21,6 +21,8 @@ contract SilentLoan is ReentrancyGuard, Ownable {
     // Account -> Token -> Amount
     mapping(address => uint256) public s_accountToEnusdBorrows;
 
+    uint256 public constant LIQUIDATION_FEE = 5;
+
     constructor(address _synthlpAddress, address _enusdAddress, uint256 _collateralRate) {
         c_r = _collateralRate;
         SynthLp = IERC20(_synthlpAddress);
@@ -75,7 +77,18 @@ contract SilentLoan is ReentrancyGuard, Ownable {
         s_accountToEnusdBorrows[account] -= amount;
         EnUSD.transferFrom(msg.sender, address(this), amount);
         SynthLp.transfer(msg.sender, amount.mul(c_r).div(100));
+    }
 
+    function liquidate(address account) external nonReentrant {
+        uint256 borrowAmount = getAccountToBorrowAmount(account);
+        uint256 depositAmount = getAccountToDepositAmount(account);
+
+        require(borrowAmount <= depositAmount.mul(c_r).div(100));
+        
+        uint256 liquidationFee = s_accountToEnusdBorrows[account].mul(LIQUIDATION_FEE).div(100);
+        uint256 liquidationAmount = borrowAmount - liquidationFee;
+        _repay(account, liquidationAmount);
+        _pullFunds(account, liquidationAmount);
     }
 
 
