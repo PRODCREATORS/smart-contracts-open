@@ -26,7 +26,7 @@ contract SilentLoan is ReentrancyGuard, Ownable {
     uint256 public constant LIQUIDATION_FEE = 5;
     uint256 public constant INTEREST_RATE = 3;
 
-    constructor(address _synthlpAddress, address _enusdAddress, uint256 _collateralRate) {
+    constructor(address synthlpAddress, address enusdAddress, uint256 _collateralRate) {
         c_r = _collateralRate;
         SynthLp = IERC20(_synthlpAddress);
         EnUSD = IERC20(_enusdAddress);
@@ -62,29 +62,24 @@ contract SilentLoan is ReentrancyGuard, Ownable {
         require(EnUSD.balanceOf(address(this)) >= amount, "Not enough tokens to borrow");
         require(s_accountToSynthlpDeposits[msg.sender] > amount.div(c_r).mul(100), "Amount is exceeds the ltv");
         s_accountToEnusdBorrows[msg.sender] += amount;
+        EnUSD.transfer(msg.sender, amount);
         s_accountBorrowTime[msg.sender] = block.timestamp;
     }
 
 
     function repay(uint256 amount)
-        external
+        public
         nonReentrant
         moreThanZero(amount)
     {
-        _repay(msg.sender, amount);
-    }
-
-    function _repay(
-        address account,
-        uint256 amount
-    ) private {
-        s_accountToEnusdBorrows[account] -= amount;
+        s_accountToEnusdBorrows[msg.sender] -= amount;
         EnUSD.transferFrom(msg.sender, address(this), amount);
         SynthLp.transfer(msg.sender, amount.mul(c_r).div(100));
-        if (s_accountToEnusdBorrows[account] == 0) {
+        if (s_accountToEnusdBorrows[msg.sender] == 0) {
             s_accountBorrowTime[msg.sender] = 0;
         }
     }
+
 
     function liquidate(address account) external nonReentrant {
         uint256 borrowAmount = getAccountToBorrowAmount(account);
@@ -96,7 +91,7 @@ contract SilentLoan is ReentrancyGuard, Ownable {
         uint256 passedTime = s_accountBorrowTime[account].div(60).div(60).div(24);
         uint256 annumFee = s_accountToEnusdBorrows[account].mul(INTEREST_RATE).div(100).mul(passedTime).div(365);
         uint256 liquidationAmount = borrowAmount - liquidationFee - annumFee;
-        _repay(account, liquidationAmount);
+        repay(liquidationAmount);
         _pullFunds(account, liquidationAmount);
     }
 
@@ -107,7 +102,10 @@ contract SilentLoan is ReentrancyGuard, Ownable {
     }
 
     // Owner functions
-   
+     function setCollateralRate(uint256 _newRate) external onlyOwner {
+        c_r = _newRate;
+    }
+
     function setSynthLp(address _newAddress) external onlyOwner {
         SynthLp = IERC20(_newAddress);
     }
@@ -123,3 +121,5 @@ contract SilentLoan is ReentrancyGuard, Ownable {
     function getAccountToBorrowAmount(address _account) public view returns(uint256) {
         return s_accountToEnusdBorrows[_account];
     }
+
+}
