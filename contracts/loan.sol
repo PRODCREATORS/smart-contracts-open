@@ -91,7 +91,7 @@ contract Lending is ReentrancyGuard, Ownable {
         emit Borrow(msg.sender, token, amount);
         bool success = IERC20(token).transfer(msg.sender, amount);
         if (!success) revert TransferFailed();
-        require(healthFactor(msg.sender) >= MIN_HEALH_FACTOR, "Platform will go insolvent!");
+        require(healthFactor(msg.sender) >= MIN_HEALH_FACTOR, "maximum borrow amount is achieved!");
     }
 
     function liquidate(
