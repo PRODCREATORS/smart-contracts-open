@@ -62,6 +62,7 @@ contract AvaxSynthFactoryV1 is AccessControlEnumerable {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
         AvaxSynthV1(synth).mint(_to, _amount);
+        emit Mint(_pid, _amount, _to);
     }
 
     /**
@@ -82,6 +83,7 @@ contract AvaxSynthFactoryV1 is AccessControlEnumerable {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
         AvaxSynthV1(synth).burn(_from, _amount);
+        emit Burn(_pid, _amount, _to);
     }
 
     /**
