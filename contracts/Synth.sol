@@ -4,14 +4,14 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AvaxSynthV1 is ERC20, Ownable {
+contract SynthV1 is ERC20, Ownable {
     address public factory;
     uint256 public pid;
 
     /**
      * @dev Sets the values for {factory}.
      */
-    constructor() ERC20("AVAXSynth", "SYNTH") {
+    constructor() ERC20("Synth", "SYNTH") {
         factory = msg.sender;
     }
 
