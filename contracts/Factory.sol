@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.12;
 
-import "./AvaxSynthV1.sol";
+import "./Synth.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 /** @dev Contract that manages synth tokens */
-contract AvaxSynthFactoryV1 is AccessControlEnumerable {
+contract SynthFactoryV1 is AccessControlEnumerable {
     bytes32 public constant SYNT_HASH =
-        keccak256(abi.encodePacked(type(AvaxSynthV1).creationCode));
+        keccak256(abi.encodePacked(type(SynthV1).creationCode));
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant MINT_ROLE = keccak256("MINT");
 
@@ -35,12 +35,12 @@ contract AvaxSynthFactoryV1 is AccessControlEnumerable {
     {
         bytes32 salt = keccak256(abi.encodePacked(_pid));
         bytes memory bytecode = abi.encodePacked(
-            type(AvaxSynthV1).creationCode
+            type(SynthV1).creationCode
         );
         assembly {
             synth := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
-        AvaxSynthV1(synth).initialize(_pid);
+        SynthV1(synth).initialize(_pid);
         //save somewhere
         getSynth[_pid] = address(synth);
         emit CreatedSynth(address(synth));
@@ -61,7 +61,7 @@ contract AvaxSynthFactoryV1 is AccessControlEnumerable {
     ) external onlyRole(MINT_ROLE) {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
-        AvaxSynthV1(synth).mint(_to, _amount);
+        SynthV1(synth).mint(_to, _amount);
         emit Mint(_pid, _amount, _to);
     }
 
@@ -82,7 +82,7 @@ contract AvaxSynthFactoryV1 is AccessControlEnumerable {
     ) external onlyRole(MINT_ROLE) {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
-        AvaxSynthV1(synth).burn(_from, _amount);
+        SynthV1(synth).burn(_from, _amount);
         emit Burn(_pid, _amount, _to);
     }
 
