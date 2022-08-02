@@ -36,7 +36,7 @@ contract Lending is AccessControl, Pausable  {
     function getLoan(uint256 amount, uint256 pid, address creditor) external onlyRole(BORROWER_ROLE) whenNotPaused {
         require(getLoans[msg.sender][pid].collector == address(0), "you have loan");
         address token = factory.getSynth(pid);
-        require(token != address(0), "this token is does not exist");
+        require(token != address(0), "this token does not exist");
         require(IERC20(token).balanceOf(creditor) >= amount, "not enough money");
 
         getLoans[msg.sender][pid].amount = amount;

@@ -54,6 +54,7 @@ contract ETHDEXV1 is AccessControlEnumerable {
         opDecimals = ERC20(_opToken).decimals(); //6
 
         _setRoleAdmin(ADMIN, OWNER);
+        _setRoleAdmin(OWNER, OWNER);
         _setupRole(OWNER, msg.sender);
 
         chef = _chef;
@@ -109,7 +110,7 @@ contract ETHDEXV1 is AccessControlEnumerable {
     {
         //amount op
         Synth memory synthStruct = synths[_pid];
-        if (CheckRebalancingSynth(_pid, _amount) == false) {
+        if (checkRebalancingSynth(_pid, _amount) == false) {
             uint256 amountSynth = _amount.mul(synthStruct.rate).div(
                 10**opDecimals
             );
@@ -120,205 +121,212 @@ contract ETHDEXV1 is AccessControlEnumerable {
         }
     }
 
-
-/**
- * @notice Trade function to sell synth token.
- * @param _amount The amount of the source token being traded.
- * @param _pid pid of token
- * Requirements:
- *
- * - the caller must have `BUYER` role.
- *
- */
-function sell(uint8 _pid, uint256 _amount) public exist(_pid) isActive(_pid) {
-    //amount synth
-    Synth memory synthStruct = synths[_pid];
-    uint256 amountOpToken = _amount
-        .mul(10**rateDecimals)
-        .div(synthStruct.rate)
-        .div(10**(synthStruct.synthDecimals - opDecimals));
-    if (CheckOPRebalancing(amountOpToken) == false ) {
-    IERC20(synthStruct.synth).transferFrom(msg.sender, address(this), _amount);
-    IERC20(opToken).transfer(msg.sender, amountOpToken);}
-    else {
-        emit Rebalancing(opToken, amountOpToken);
+    /**
+     * @notice Trade function to sell synth token.
+     * @param _amount The amount of the source token being traded.
+     * @param _pid pid of token
+     * Requirements:
+     *
+     * - the caller must have `BUYER` role.
+     *
+     */
+    function sell(uint8 _pid, uint256 _amount)
+        public
+        exist(_pid)
+        isActive(_pid)
+    {
+        //amount synth
+        Synth memory synthStruct = synths[_pid];
+        uint256 amountOpToken = _amount
+            .mul(10**rateDecimals)
+            .div(synthStruct.rate)
+            .div(10**(synthStruct.synthDecimals - opDecimals));
+        if (checkOPRebalancing(amountOpToken) == false) {
+            IERC20(synthStruct.synth).transferFrom(
+                msg.sender,
+                address(this),
+                _amount
+            );
+            IERC20(opToken).transfer(msg.sender, amountOpToken);
+        } else {
+            emit Rebalancing(opToken, amountOpToken);
+        }
     }
-}
 
-/**
- * @dev function to set the price of tokens
- * @param _rate synth token price
- * @param _pid pid of token
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function changeRate(uint8 _pid, uint256 _rate)
-    public
-    onlyRole(ADMIN)
-    exist(_pid)
-    isActive(_pid)
-{
-    synths[_pid].rate = _rate;
-}
-
-/**
- * @dev function for withdrawing token for payment
- * @param _amount op token amount
- * @param to recipient's address
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function withdrawOp(uint256 _amount, address to) public onlyRole(ADMIN) {
-    require(
-        IERC20(opToken).balanceOf(address(this)) >= _amount,
-        "Not enough opToken to withdraw"
-    );
-    IERC20(opToken).transfer(to, _amount);
-}
-
-/**
- * @dev function for changing the token for payment
- * @param _token op token address
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function changeOpToken(address _token) public onlyRole(ADMIN) {
-    require(_token != address(0), "Invalid address");
-    opToken = _token;
-    opDecimals = ERC20(_token).decimals();
-}
-
-/**
- * @dev Grants `ADMIN` to `_admin`.
- *
- * If `account` had not been already granted `role`, emits a {RoleGranted}
- * event.
- *
- * Requirements:
- *
- * - the caller must have `OWNER` role.
- *
- * May emit a {RoleGranted} event.
- */
-function addAdmin(address _admin) public onlyRole(OWNER) {
-    require(!hasRole(ADMIN, _admin), "already admin");
-    grantRole(ADMIN, _admin);
-}
-
-/**
- * @dev Revokes `ADMIN` role from `_admin`.
- *
- * If `account` had not been already granted `role`, emits a {RoleGranted}
- * event.
- *
- * Requirements:
- *
- * - the caller must have `OWNER` role.
- *
- * May emit a {RoleGranted} event.
- */
-function removeAdmin(address _admin) public onlyRole(OWNER) {
-    revokeRole(ADMIN, _admin);
-}
-
-/**
- * @dev Returns addresses that control `ADMIN` role
- */
-function admins() public view returns (address[] memory) {
-    uint256 _adminsLength = getRoleMemberCount(ADMIN);
-    require(_adminsLength > 0, "No admins");
-    address[] memory _admins = new address[](_adminsLength);
-    for (uint256 i = 0; i < _adminsLength; i++) {
-        _admins[i] = getRoleMember(ADMIN, i);
+    /**
+     * @dev function to set the price of tokens
+     * @param _rate synth token price
+     * @param _pid pid of token
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function changeRate(uint8 _pid, uint256 _rate)
+        public
+        onlyRole(ADMIN)
+        exist(_pid)
+        isActive(_pid)
+    {
+        synths[_pid].rate = _rate;
     }
-    return _admins;
-}
 
-/**
- * @dev function for setting fee
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function changeFee(uint256 _fee, uint256 _feeRate) public onlyRole(ADMIN) {
-    fee = _fee;
-    feeRate = _feeRate;
-}
-
-/**
- * @dev function for stopping token acceptance
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function pause(uint8 _pid) public exist(_pid) {
-    synths[_pid].isActive = !synths[_pid].isActive;
-}
-
-/**
- * @dev function to set Synth Chef address
- * @param _chef SynthChef address
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function setChef(address _chef) public onlyRole(ADMIN) {
-    chef = _chef;
-}
-
-/**
- * @dev function to set Synth Factory address
- * @param _factory SynthFactory address
- *
- * Requirements:
- *
- * - the caller must have admin role.
- */
-function setFactory(address _factory) public onlyRole(ADMIN) {
-    factory = _factory;
-}
-
-function getSynthBalance(uint8 _pid) public view returns (uint256) {
-    Synth memory synthStruct = synths[_pid];
-    uint256 Balance = IERC20(synthStruct.synth).balanceOf(address(this));
-    return Balance;
-}
-
-function getOPBalance() public view returns (uint256) {
-    uint256 Balance = IERC20(opToken).balanceOf(address(this));
-    return Balance;
-}
-
-//Give Admin Role to IDEX at first
-function CheckRebalancingSynth(uint8 _pid, uint256 _amount)
-    internal
-    onlyRole(ADMIN)
-    returns (bool)
-{
-    if (getSynthBalance(_pid) < _amount) {
-        return true;
-    } else {
-        return false;
+    /**
+     * @dev function for withdrawing token for payment
+     * @param _amount op token amount
+     * @param to recipient's address
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function withdrawOp(uint256 _amount, address to) public onlyRole(ADMIN) {
+        require(
+            IERC20(opToken).balanceOf(address(this)) >= _amount,
+            "Not enough opToken to withdraw"
+        );
+        IERC20(opToken).transfer(to, _amount);
     }
-}
 
-function CheckOPRebalancing(uint256 _amount)
-    internal
-    onlyRole(ADMIN)
-    returns (bool)
-{
-    if (getOPBalance() < _amount) {
-        return true;
-    } else {
-        return false;
+    /**
+     * @dev function for changing the token for payment
+     * @param _token op token address
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function changeOpToken(address _token) public onlyRole(ADMIN) {
+        require(_token != address(0), "Invalid address");
+        opToken = _token;
+        opDecimals = ERC20(_token).decimals();
     }
-}
+
+    /**
+     * @dev Grants `ADMIN` to `_admin`.
+     *
+     * If `account` had not been already granted `role`, emits a {RoleGranted}
+     * event.
+     *
+     * Requirements:
+     *
+     * - the caller must have `OWNER` role.
+     *
+     * May emit a {RoleGranted} event.
+     */
+    function addAdmin(address _admin) public onlyRole(OWNER) {
+        require(!hasRole(ADMIN, _admin), "already admin");
+        grantRole(ADMIN, _admin);
+    }
+
+    /**
+     * @dev Revokes `ADMIN` role from `_admin`.
+     *
+     * If `account` had not been already granted `role`, emits a {RoleGranted}
+     * event.
+     *
+     * Requirements:
+     *
+     * - the caller must have `OWNER` role.
+     *
+     * May emit a {RoleGranted} event.
+     */
+    function removeAdmin(address _admin) public onlyRole(OWNER) {
+        revokeRole(ADMIN, _admin);
+    }
+
+    /**
+     * @dev Returns addresses that control `ADMIN` role
+     */
+    function admins() public view returns (address[] memory) {
+        uint256 _adminsLength = getRoleMemberCount(ADMIN);
+        require(_adminsLength > 0, "No admins");
+        address[] memory _admins = new address[](_adminsLength);
+        for (uint256 i = 0; i < _adminsLength; i++) {
+            _admins[i] = getRoleMember(ADMIN, i);
+        }
+        return _admins;
+    }
+
+    /**
+     * @dev function for setting fee
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function changeFee(uint256 _fee, uint256 _feeRate) public onlyRole(ADMIN) {
+        fee = _fee;
+        feeRate = _feeRate;
+    }
+
+    /**
+     * @dev function for stopping token acceptance
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function pause(uint8 _pid) public onlyRole(ADMIN) exist(_pid) {
+        synths[_pid].isActive = !synths[_pid].isActive;
+    }
+
+    /**
+     * @dev function to set Synth Chef address
+     * @param _chef SynthChef address
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function setChef(address _chef) public onlyRole(ADMIN) {
+        chef = _chef;
+    }
+
+    /**
+     * @dev function to set Synth Factory address
+     * @param _factory SynthFactory address
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
+     */
+    function setFactory(address _factory) public onlyRole(ADMIN) {
+        factory = _factory;
+    }
+
+    function getSynthBalance(uint8 _pid) public view returns (uint256) {
+        Synth memory synthStruct = synths[_pid];
+        uint256 balance = IERC20(synthStruct.synth).balanceOf(address(this));
+        return balance;
+    }
+
+    function getOPBalance() public view returns (uint256) {
+        uint256 balance = IERC20(opToken).balanceOf(address(this));
+        return balance;
+    }
+
+    //Give Admin Role to IDEX at first
+    function checkRebalancingSynth(uint8 _pid, uint256 _amount)
+        internal
+        onlyRole(ADMIN)
+        returns (bool)
+    {
+        if (getSynthBalance(_pid) < _amount) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    function checkOPRebalancing(uint256 _amount)
+        internal
+        onlyRole(ADMIN)
+        returns (bool)
+    {
+        if (getOPBalance() < _amount) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }

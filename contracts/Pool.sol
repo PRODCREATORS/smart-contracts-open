@@ -12,23 +12,22 @@ contract Pool is AccessControl, Pausable  {
 
     IERC20 token;
 
-    constructor(address _token) {
+    constructor(IERC20 _token) {
         _setRoleAdmin(DEPOSITER_ROLE, ADMIN_ROLE);
         _setupRole(ADMIN_ROLE, msg.sender);
-        token = IERC20(_token);
+        token = _token;
     }
     
     event Deposit(uint256 amount);
     event Withdraw(uint256 amount);
 
-    function depositToken( uint256 amount) external onlyRole(DEPOSITER_ROLE) {
-        IERC20(token).transferFrom(msg.sender, address(this), amount);
+    function depositToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) {
+        token.transferFrom(msg.sender, address(this), amount);
         emit Deposit(amount);
     }
 
     function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) {
-        IERC20(token).transfer(msg.sender, amount);
-
+        token.transfer(msg.sender, amount);
         emit Withdraw(amount);
     }
 
@@ -50,7 +49,7 @@ contract Pool is AccessControl, Pausable  {
 		_unpause();
 	}
     
-    function updateToken(address _token) external onlyRole(ADMIN_ROLE) {
-        token = IERC20(_token);
+    function updateToken(IERC20 _token) external onlyRole(ADMIN_ROLE) {
+        token = _token;
     }
 }

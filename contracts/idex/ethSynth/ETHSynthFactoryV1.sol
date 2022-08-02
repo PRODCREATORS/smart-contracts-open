@@ -20,7 +20,7 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
         _setupRole(ADMIN_ROLE, msg.sender);
     }
 
-    /** @dev Creates smart conract of SynthToken and sets specific `_pid`
+    /** @dev Creates smart contract of SynthToken and sets specific `_pid`
      *
      * Requirements:
      * - `_pid` there must be an pid of the created token

@@ -104,6 +104,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         treasury = _treasury;
 
         _setRoleAdmin(ADMIN, OWNER);
+        _setRoleAdmin(OWNER, OWNER);
         _setupRole(OWNER, msg.sender);
     }
 
