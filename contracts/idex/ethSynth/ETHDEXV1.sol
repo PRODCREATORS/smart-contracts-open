@@ -18,12 +18,13 @@ contract ETHDEXV1 is AccessControlEnumerable {
 
     uint256 public fee;
     uint256 public feeRate = 1e3;
-
+    address public feeCollector;
     address public chef; //synthChef
     address public factory; //synth factory
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
+    bytes32 public constant Lender = keccak256("LENDER");
 
     event Rebalancing(address token, uint256 amount);
 
@@ -48,7 +49,8 @@ contract ETHDEXV1 is AccessControlEnumerable {
         address _opToken,
         address _factory,
         address _chef,
-        uint8 _farmPid
+        uint8 _farmPid,
+        address _feeCollector
     ) {
         opToken = _opToken;
         opDecimals = ERC20(_opToken).decimals(); //6
@@ -56,11 +58,14 @@ contract ETHDEXV1 is AccessControlEnumerable {
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(OWNER, OWNER);
         _setupRole(OWNER, msg.sender);
+        _setupRole(LENDER, msg.sender);
 
         chef = _chef;
         factory = _factory;
 
         farmPid = _farmPid;
+
+        feeCollector = _feeCollector;
     }
 
     modifier isActive(uint8 _pid) {
@@ -108,17 +113,12 @@ contract ETHDEXV1 is AccessControlEnumerable {
         exist(_pid)
         isActive(_pid)
     {
-        //amount op
         Synth memory synthStruct = synths[_pid];
-        if (checkRebalancingSynth(_pid, _amount) == false) {
-            uint256 amountSynth = _amount.mul(synthStruct.rate).div(
-                10**opDecimals
-            );
-            IERC20(opToken).transferFrom(msg.sender, address(this), _amount);
-            IERC20(synthStruct.synth).transfer(msg.sender, amountSynth);
-        } else {
-            emit Rebalancing(synthStruct.synth, _amount);
-        }
+        uint256 fee = _amount.div(100).mul(1);
+        uint256 amountSynth = _amount.mul(synthStruct.rate).div(10**opDecimals);
+        IERC20(opToken).transferFrom(msg.sender, address(this), _amount);
+        IERC20(opToken).transfer(feeCollector, fee);
+        IERC20(synthStruct.synth).transfer(msg.sender, amountSynth);
     }
 
     /**
@@ -137,20 +137,20 @@ contract ETHDEXV1 is AccessControlEnumerable {
     {
         //amount synth
         Synth memory synthStruct = synths[_pid];
+        uint256 fee = _amount.div(100).mul(1);
         uint256 amountOpToken = _amount
             .mul(10**rateDecimals)
             .div(synthStruct.rate)
             .div(10**(synthStruct.synthDecimals - opDecimals));
-        if (checkOPRebalancing(amountOpToken) == false) {
-            IERC20(synthStruct.synth).transferFrom(
-                msg.sender,
-                address(this),
-                _amount
-            );
-            IERC20(opToken).transfer(msg.sender, amountOpToken);
-        } else {
-            emit Rebalancing(opToken, amountOpToken);
-        }
+        uint256 fee = amountOpToken.div(100).mul(1);
+        amountOpToken = amountOpToken - fee;
+        IERC20(synthStruct.synth).transferFrom(
+            msg.sender,
+            address(this),
+            _amount
+        );
+        IERC20(opToken).transfer(msg.sender, fee);
+        IERC20(opToken).transfer(msg.sender, amountOpToken);
     }
 
     /**
@@ -266,7 +266,7 @@ contract ETHDEXV1 is AccessControlEnumerable {
      *
      * - the caller must have admin role.
      */
-    function pause(uint8 _pid) public onlyRole(ADMIN) exist(_pid) {
+    function pause(uint8 _pid) public exist(_pid) {
         synths[_pid].isActive = !synths[_pid].isActive;
     }
 
@@ -296,17 +296,17 @@ contract ETHDEXV1 is AccessControlEnumerable {
 
     function getSynthBalance(uint8 _pid) public view returns (uint256) {
         Synth memory synthStruct = synths[_pid];
-        uint256 balance = IERC20(synthStruct.synth).balanceOf(address(this));
-        return balance;
+        uint256 Balance = IERC20(synthStruct.synth).balanceOf(address(this));
+        return Balance;
     }
 
     function getOPBalance() public view returns (uint256) {
-        uint256 balance = IERC20(opToken).balanceOf(address(this));
-        return balance;
+        uint256 Balance = IERC20(opToken).balanceOf(address(this));
+        return Balance;
     }
 
     //Give Admin Role to IDEX at first
-    function checkRebalancingSynth(uint8 _pid, uint256 _amount)
+    function CheckRebalancingSynth(uint8 _pid, uint256 _amount)
         internal
         onlyRole(ADMIN)
         returns (bool)
@@ -318,7 +318,7 @@ contract ETHDEXV1 is AccessControlEnumerable {
         }
     }
 
-    function checkOPRebalancing(uint256 _amount)
+    function CheckOPRebalancing(uint256 _amount)
         internal
         onlyRole(ADMIN)
         returns (bool)
@@ -328,5 +328,9 @@ contract ETHDEXV1 is AccessControlEnumerable {
         } else {
             return false;
         }
+    }
+
+    function Lend(uint256 _amount) onlyRole(LENDER) {
+        IERC20(opToken).transfer(msg.sender, _amount);
     }
 }
