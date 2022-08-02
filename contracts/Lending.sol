@@ -46,8 +46,8 @@ contract Lending is AccessControl, Pausable  {
     function repayLoan(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan loan = loans[loanId];
         loan.token.transferFrom(msg.sender, creditor, amount);
-        delete loans[loanId];
         emit RepayLoan(loan.token, amount, creditor);
+        delete loans[loanId];
     }
 
     function pause() external whenNotPaused onlyRole(ADMIN_ROLE) {
