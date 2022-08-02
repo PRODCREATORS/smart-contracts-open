@@ -28,7 +28,7 @@ contract Lending is AccessControl, Pausable  {
     event GetLoan(IERC20 token, uint256 amount, address indexed creditor);
     event RepayLoan(IERC20 token, uint256 amount, address indexed creditor);
 
-    uint256 nextLoanId = 0;
+    uint256 private nextLoanId = 0;
 
 
     function getLoan(uint256 amount, IERC20 token, address creditor) external onlyRole(BORROWER_ROLE) whenNotPaused {
