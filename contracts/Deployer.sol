@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "./idex/ethSynth/ETHSynthFactoryV1.sol";
 import "./idex/ethSynth/ETHSynthChefV1.sol";
 import "./idex/ethSynth/ETHDEXV1.sol";
+import "./Pauser.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Lending.sol";
 import "./Pool.sol";
@@ -93,8 +94,29 @@ contract Deployer is AccessControl {
         chef.grantRole(chef.ADMIN_ROLE(), admin);
         chef.grantRole(chef.BORROWER_ROLE(), address(lending));
 
-        ETHDEXV1 idex = deployIDEX(opToken, address(synthFactory), address(chef), farmPid, feeCollector);
+        ETHDEXV1 idex = deployIDEX(
+            opToken,
+            address(synthFactory),
+            address(chef),
+            farmPid,
+            feeCollector
+        );
         idex.grantRole(idex.ADMIN(), admin);
         idex.grantRole(idex.BORROWER_ROLE(), address(lending));
+
+        IPausable[] memory contracts = new IPausable[](5);
+        contracts[0] = IPausable(address(idex));
+        contracts[1] = IPausable(address(chef));
+        contracts[2] = IPausable(address(pool));
+        contracts[3] = IPausable(address(lending));
+        contracts[4] = IPausable(address(synthFactory));
+
+        Pauser pauser = new Pauser(
+            contracts
+        );
+        pauser.grantRole(pauser.ADMIN_ROLE(), admin);
+        idex.grantRole(idex.PAUSER_ROLE(), address(pauser));
+        lending.grantRole(lending.PAUSER_ROLE(), address(pauser));
+        chef.grantRole(chef.PAUSER_ROLE(), address(pauser));
     }
 }
