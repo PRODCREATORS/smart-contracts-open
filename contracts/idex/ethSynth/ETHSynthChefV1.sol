@@ -2,6 +2,7 @@
 pragma solidity >=0.8.9;
 
 import "./utils/IBooster.sol";
+import "../../Lender.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -54,7 +55,7 @@ interface ConvexReward {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract ETHSynthChefV1 is AccessControlEnumerable {
+contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     
     using SafeMath for uint256;
 
@@ -84,8 +85,8 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         address wtoken1;
     }
 
-    bytes32 public constant OWNER = keccak256("OWNER");
-    bytes32 public constant ADMIN = keccak256("ADMIN");
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
 
     constructor(
         address _router,
@@ -103,22 +104,23 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         fee = _fee;
         treasury = _treasury;
 
-        _setRoleAdmin(ADMIN, OWNER);
-        _setRoleAdmin(OWNER, OWNER);
-        _setupRole(OWNER, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+        _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
+        _setRoleAdmin(BORROWER_ROLE, ADMIN_ROLE);
+        _setupRole(OWNER_ROLE, msg.sender);
     }
 
     receive() external payable {}
 
-    function setFactory(address _factory) external onlyRole(ADMIN) {
+    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) {
         factory = _factory;
     }
 
-    function setRouter(address _router) external onlyRole(ADMIN) {
+    function setRouter(address _router) external onlyRole(ADMIN_ROLE) {
         router = _router;
     }
 
-    function deposit(uint256 _pid) external payable onlyRole(ADMIN) {
+    function deposit(uint256 _pid) external payable onlyRole(ADMIN_ROLE) {
         uint256 amountLPs = addLiquidity(msg.value, WETH, _pid);
         _deposit(amountLPs, _pid);
         _compound(_pid);
@@ -129,7 +131,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         uint256 _amount,
         address _token,
         uint256 _poolID
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = addLiquidity(_amount, _token, _poolID);
         _deposit(amountLPs, _poolID);
@@ -320,7 +322,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         ConvexReward(poolsArray[_pid].convexreward).getReward();
     }
 
-    function compound(uint256 _pid) external onlyRole(ADMIN) {
+    function compound(uint256 _pid) external onlyRole(ADMIN_ROLE) {
         harvest(_pid);
         _compound(_pid);
     }
@@ -393,7 +395,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         address _toToken,
         address payable _to,
         uint256 _poolID
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) {
         ConvexReward(poolsArray[_poolID].convexreward).withdrawAndUnwrap(
             _amount,
             true
@@ -538,12 +540,12 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         totalAmount += convertTokenToStable(token1, amount1); //convert token's price to stablecoins price
     }
 
-    function addStablecoin(address coin) external onlyRole(ADMIN) {
+    function addStablecoin(address coin) external onlyRole(ADMIN_ROLE) {
         require(coin != address(0), "Bad address");
         stablecoins.push(coin);
     }
 
-    function cleanStablecoins() external onlyRole(ADMIN) {
+    function cleanStablecoins() external onlyRole(ADMIN_ROLE) {
         for (uint256 i = 0; i < stablecoins.length; i++) {
             delete stablecoins[i];
         }
@@ -553,17 +555,17 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         stable = stablecoins[pid];
     }
 
-    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN) {
+    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
         feeRate = _feeRate;
     }
 
-    function setRewardToken(address _newToken) external onlyRole(ADMIN) {
+    function setRewardToken(address _newToken) external onlyRole(ADMIN_ROLE) {
         require(_newToken != address(0), "Invalid address");
         rewardToken = _newToken;
     }
 
-    function setTreasury(address _treasury) external onlyRole(ADMIN) {
+    function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) {
         require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }
@@ -577,7 +579,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable {
         address _convexreward,
         address _wtoken0,
         address _wtoken1
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) {
         poolsArray.push(
             Pool(
                 _pool,

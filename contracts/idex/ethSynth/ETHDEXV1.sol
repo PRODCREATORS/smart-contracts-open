@@ -7,8 +7,10 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "./ETHSynthFactoryV1.sol";
 import "../utils/ISynthChef.sol";
+import "../../Lender.sol";
+import "../../PausableAccessControl.sol";
 
-contract ETHDEXV1 is AccessControlEnumerable {
+contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     using SafeMath for uint256;
 
     address public opToken; //token which will be paid for synth and will be get after selling synth
@@ -24,7 +26,6 @@ contract ETHDEXV1 is AccessControlEnumerable {
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
-    bytes32 public constant Lender = keccak256("LENDER");
 
     event Rebalancing(address token, uint256 amount);
 
@@ -57,8 +58,9 @@ contract ETHDEXV1 is AccessControlEnumerable {
 
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(OWNER, OWNER);
+        _setRoleAdmin(PAUSER_ROLE, ADMIN);
+        _setRoleAdmin(BORROWER_ROLE, ADMIN);
         _setupRole(OWNER, msg.sender);
-        _setupRole(LENDER, msg.sender);
 
         chef = _chef;
         factory = _factory;
@@ -114,10 +116,10 @@ contract ETHDEXV1 is AccessControlEnumerable {
         isActive(_pid)
     {
         Synth memory synthStruct = synths[_pid];
-        uint256 fee = _amount.div(100).mul(1);
+        uint256 fee_ = _amount.div(100).mul(1);
         uint256 amountSynth = _amount.mul(synthStruct.rate).div(10**opDecimals);
         IERC20(opToken).transferFrom(msg.sender, address(this), _amount);
-        IERC20(opToken).transfer(feeCollector, fee);
+        IERC20(opToken).transfer(feeCollector, fee_);
         IERC20(synthStruct.synth).transfer(msg.sender, amountSynth);
     }
 
@@ -137,19 +139,19 @@ contract ETHDEXV1 is AccessControlEnumerable {
     {
         //amount synth
         Synth memory synthStruct = synths[_pid];
-        uint256 fee = _amount.div(100).mul(1);
+        uint256 fee_ = _amount.div(100).mul(1);
         uint256 amountOpToken = _amount
             .mul(10**rateDecimals)
             .div(synthStruct.rate)
             .div(10**(synthStruct.synthDecimals - opDecimals));
-        uint256 fee = amountOpToken.div(100).mul(1);
-        amountOpToken = amountOpToken - fee;
+        fee_ = amountOpToken.div(100).mul(1);
+        amountOpToken = amountOpToken - fee_;
         IERC20(synthStruct.synth).transferFrom(
             msg.sender,
             address(this),
             _amount
         );
-        IERC20(opToken).transfer(msg.sender, fee);
+        IERC20(opToken).transfer(msg.sender, fee_);
         IERC20(opToken).transfer(msg.sender, amountOpToken);
     }
 
@@ -328,9 +330,5 @@ contract ETHDEXV1 is AccessControlEnumerable {
         } else {
             return false;
         }
-    }
-
-    function Lend(uint256 _amount) onlyRole(LENDER) {
-        IERC20(opToken).transfer(msg.sender, _amount);
     }
 }

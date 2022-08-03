@@ -5,12 +5,9 @@ pragma solidity ^0.8.0;
 import "./idex/ethSynth/ETHSynthFactoryV1.sol";
 import "./idex/ethSynth/ETHSynthChefV1.sol";
 import "./idex/ethSynth/ETHDEXV1.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Lending.sol";
 import "./Pool.sol";
-
-interface Ifactory {
-    function getSynth(uint256) external view returns (address);
-}
 
 contract Deployer is AccessControl {
     address public admin;
@@ -22,25 +19,30 @@ contract Deployer is AccessControl {
         admin = msg.sender;
     }
 
-    function deploy(
-        address opToken,
-        address rewardToken,
-        address convex,
+    function deploySynthFactory()
+        internal
+        returns (ETHSynthFactoryV1 synthFactory)
+    {
+        synthFactory = new ETHSynthFactoryV1();
+    }
+
+    function deployPool(IERC20 token) internal returns (Pool pool) {
+        pool = new Pool(token);
+    }
+
+    function deployLending() internal returns (Lending lending) {
+        lending = new Lending();
+    }
+
+    function deployChef(
         address router,
+        address factory,
+        address convex,
         uint256 fee,
         address treasury,
         address rewardToken
-    ) external onlyRole(ADMIN_ROLE) {
-        ETHSynthFactoryV1 factory = new ETHSynthFactoryV1();
-        factory.grantRole(factory.ADMIN_ROLE, admin);
-
-        Lending lending = new Lending(factory);
-        lending.grantRole(lending.ADMIN_ROLE, admin);
-
-        Pool pool = new Pool(opToken);
-        pool.grantRole(pool.ADMIN_ROLE, admin);
-
-        ETHSynthChefV1 chef = new ETHSynthChefV1(
+    ) internal returns (ETHSynthChefV1 chef) {
+        chef = new ETHSynthChefV1(
             router,
             factory,
             convex,
@@ -48,9 +50,51 @@ contract Deployer is AccessControl {
             treasury,
             rewardToken
         );
-        chef.grantRole(chef.OWNER, admin);
+    }
 
-        ETHDEXV1 dex = new ETHDEXV1(opToken, factory, chef, farmPid);
-        dex.grantRole(dex.OWNER, admin);
+    function deployIDEX(
+        address opToken,
+        address synthFactory,
+        address chef,
+        uint8 farmPid,
+        address feeCollector
+    ) internal returns (ETHDEXV1 idex) {
+        idex = new ETHDEXV1(opToken, synthFactory, chef, farmPid, feeCollector);
+    }
+
+    function deploy(
+        address opToken,
+        address router,
+        address factory,
+        address convex,
+        uint256 fee,
+        address treasury,
+        address rewardToken,
+        uint8 farmPid,
+        address feeCollector
+    ) external onlyRole(ADMIN_ROLE) {
+        ETHSynthFactoryV1 synthFactory = deploySynthFactory();
+        synthFactory.grantRole(synthFactory.ADMIN_ROLE(), admin);
+
+        Lending lending = deployLending();
+        lending.grantRole(lending.ADMIN_ROLE(), admin);
+
+        Pool pool = deployPool(IERC20(opToken));
+        pool.grantRole(pool.ADMIN_ROLE(), admin);
+
+        ETHSynthChefV1 chef = deployChef(
+            router,
+            factory,
+            convex,
+            fee,
+            treasury,
+            rewardToken
+        );
+        chef.grantRole(chef.ADMIN_ROLE(), admin);
+        chef.grantRole(chef.BORROWER_ROLE(), address(lending));
+
+        ETHDEXV1 idex = deployIDEX(opToken, address(synthFactory), address(chef), farmPid, feeCollector);
+        idex.grantRole(idex.ADMIN(), admin);
+        idex.grantRole(idex.BORROWER_ROLE(), address(lending));
     }
 }

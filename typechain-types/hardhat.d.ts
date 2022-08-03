@@ -57,17 +57,77 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IERC165__factory>;
     getContractFactory(
-      name: "EnUSD",
+      name: "IUniswapV2Factory",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.EnUSD__factory>;
+    ): Promise<Contracts.IUniswapV2Factory__factory>;
+    getContractFactory(
+      name: "IUniswapV2Pair",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IUniswapV2Pair__factory>;
+    getContractFactory(
+      name: "IUniswapV2Router01",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IUniswapV2Router01__factory>;
+    getContractFactory(
+      name: "IUniswapV2Router02",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IUniswapV2Router02__factory>;
+    getContractFactory(
+      name: "Deployer",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Deployer__factory>;
+    getContractFactory(
+      name: "ETHDEXV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ETHDEXV1__factory>;
+    getContractFactory(
+      name: "Convex",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Convex__factory>;
+    getContractFactory(
+      name: "ConvexReward",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ConvexReward__factory>;
+    getContractFactory(
+      name: "Curve",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Curve__factory>;
+    getContractFactory(
+      name: "ETHSynthChefV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ETHSynthChefV1__factory>;
+    getContractFactory(
+      name: "ETHSynthFactoryV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ETHSynthFactoryV1__factory>;
+    getContractFactory(
+      name: "ETHSynthV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ETHSynthV1__factory>;
+    getContractFactory(
+      name: "IMasterChef",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IMasterChef__factory>;
+    getContractFactory(
+      name: "ISynthChef",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ISynthChef__factory>;
+    getContractFactory(
+      name: "ILender",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ILender__factory>;
     getContractFactory(
       name: "IPausable",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IPausable__factory>;
     getContractFactory(
-      name: "Liquidation",
+      name: "Lender",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.Liquidation__factory>;
+    ): Promise<Contracts.Lender__factory>;
+    getContractFactory(
+      name: "Lending",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Lending__factory>;
     getContractFactory(
       name: "PausableAccessControl",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -77,13 +137,9 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Pauser__factory>;
     getContractFactory(
-      name: "SimpleToken",
+      name: "Pool",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.SimpleToken__factory>;
-    getContractFactory(
-      name: "SilentStaking",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.SilentStaking__factory>;
+    ): Promise<Contracts.Pool__factory>;
     getContractFactory(
       name: "PausableMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -145,20 +201,95 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.IERC165>;
     getContractAt(
-      name: "EnUSD",
+      name: "IUniswapV2Factory",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.EnUSD>;
+    ): Promise<Contracts.IUniswapV2Factory>;
+    getContractAt(
+      name: "IUniswapV2Pair",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IUniswapV2Pair>;
+    getContractAt(
+      name: "IUniswapV2Router01",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IUniswapV2Router01>;
+    getContractAt(
+      name: "IUniswapV2Router02",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IUniswapV2Router02>;
+    getContractAt(
+      name: "Deployer",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Deployer>;
+    getContractAt(
+      name: "ETHDEXV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ETHDEXV1>;
+    getContractAt(
+      name: "Convex",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Convex>;
+    getContractAt(
+      name: "ConvexReward",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ConvexReward>;
+    getContractAt(
+      name: "Curve",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Curve>;
+    getContractAt(
+      name: "ETHSynthChefV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ETHSynthChefV1>;
+    getContractAt(
+      name: "ETHSynthFactoryV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ETHSynthFactoryV1>;
+    getContractAt(
+      name: "ETHSynthV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ETHSynthV1>;
+    getContractAt(
+      name: "IMasterChef",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IMasterChef>;
+    getContractAt(
+      name: "ISynthChef",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ISynthChef>;
+    getContractAt(
+      name: "ILender",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ILender>;
     getContractAt(
       name: "IPausable",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IPausable>;
     getContractAt(
-      name: "Liquidation",
+      name: "Lender",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.Liquidation>;
+    ): Promise<Contracts.Lender>;
+    getContractAt(
+      name: "Lending",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Lending>;
     getContractAt(
       name: "PausableAccessControl",
       address: string,
@@ -170,15 +301,10 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Pauser>;
     getContractAt(
-      name: "SimpleToken",
+      name: "Pool",
       address: string,
       signer?: ethers.Signer
-    ): Promise<Contracts.SimpleToken>;
-    getContractAt(
-      name: "SilentStaking",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.SilentStaking>;
+    ): Promise<Contracts.Pool>;
     getContractAt(
       name: "PausableMock",
       address: string,
