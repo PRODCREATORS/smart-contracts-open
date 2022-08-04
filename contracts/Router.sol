@@ -3,7 +3,7 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./utils/IERC20Extended.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./PausableAccessControl.sol";
 import "./interfaces/IETHDEXV1.sol";
@@ -47,7 +47,7 @@ contract Router is PausableAccessControl {
 
     IsynthChef chef;
 
-    IERC20 opToken;
+    IERC20Extended opToken;
 
     Ifactory factory;
 
@@ -73,7 +73,7 @@ contract Router is PausableAccessControl {
         address _pool,
         IETHDEXV1 _idex,
         IsynthChef _chef,
-        IERC20 _opToken,
+        IERC20Extended _opToken,
         Ifactory _factory,
         address _bridge,
         address _feeCollector
@@ -92,10 +92,11 @@ contract Router is PausableAccessControl {
         factory = _factory;
     }
 
-    function buy(
-        uint8 _pid,
-        uint256 _amount
-    ) external whenNotPaused {
+    function buy(uint8 _pid, uint256 _amount)
+        external
+        whenNotPaused
+        returns (uint256 synthAmount)
+    {
         if (checkBalanceSynth(_pid, _amount)) {
             emit DEXRebalancing(_pid, 0, _amount, 3);
         } else {
@@ -104,25 +105,27 @@ contract Router is PausableAccessControl {
             if (opToken.allowance(address(this), address(idex)) < _amount) {
                 opToken.approve(address(idex), type(uint256).max);
             }
-            idex.buy(_pid, _amount);
-            uint256 fee_ = _amount.div(100).mul(1);
-            uint256 amountSynth = _amount.mul(synth.rate).div(10**opDecimals);
-            opToken.transferFrom(msg.sender, address(this), _amount);
-            opToken.transfer(feeCollector, fee_);
-            synth.synth.transfer(msg.sender, amountSynth);
+            synthAmount = idex.buy(_pid, _amount);
+            synth.synth.transfer(msg.sender, synthAmount);
+            checkLiquidity(_pid);
         }
     }
 
     function sell(
-        address _to,
         uint8 _pid,
         uint256 _amount
-    ) external whenNotPaused {
-        if (checkBalanceOpToken(_to, _amount)) {
-            emit DEXRebalancing(_to, 0, 0, _amount, 4);
+    ) external whenNotPaused returns(uint256 opTokenAmount){
+        if (checkBalanceOpToken(_amount)) {
+            emit DEXRebalancing(0, 0, _amount, 4);
         } else {
-            IDEX(_to).sell(_pid, _amount);
-            checkLiquidity(_to, _pid);
+            Synth memory synth = idex.synths(_pid);
+            synth.synth.transferFrom(msg.sender, address(this), _amount);
+            if (synth.synth.allowance(address(this), address(idex)) < _amount) {
+                synth.synth.approve(address(idex), type(uint256).max);
+            }
+            opTokenAmount = idex.sell(_pid, _amount);
+            opToken.transfer(msg.sender, opTokenAmount);
+            checkLiquidity(_pid);
         }
     }
 
@@ -188,12 +191,12 @@ contract Router is PausableAccessControl {
         factory = Ifactory(_factory);
     }
 
-    function changeTokenOp(address _tokenOp)
+    function changeOpToken(IERC20Extended _opToken)
         external
         onlyRole(OWNER)
         whenNotPaused
     {
-        opToken = IERC20(_tokenOp);
+        opToken = _opToken;
     }
 
     function addAdmin(address _admin) public onlyRole(OWNER) whenNotPaused {
@@ -205,45 +208,44 @@ contract Router is PausableAccessControl {
         revokeRole(ADMIN, _admin);
     }
 
-    function checkLiquidity(address _idex, uint8 _pid) internal {
-        uint256 balanceSynth;
-        uint256 balanceOpToken;
+    function checkLiquidity(uint8 _pid) internal {
+        uint256 synthBalance;
+        uint256 opTokenBalance;
+        Synth memory synth = idex.synths(_pid);
         if (opDecimals > 18) {
-            balanceSynth =
-                IERC20(factory.getSynth(_pid)).balanceOf(_idex) *
-                10**(opDecimals - 17);
-            balanceOpToken = opToken.balanceOf(_idex) * 10;
+            synthBalance =
+                synth.synth.balanceOf(address(idex)) * 10 ** (opDecimals - 17);
+            opTokenBalance = opToken.balanceOf(address(idex)) * 10;
         } else {
-            balanceOpToken = opToken.balanceOf(_idex) * 10**(19 - opDecimals);
-            balanceSynth = IERC20(factory.getSynth(_pid)).balanceOf(_idex) * 10;
+            opTokenBalance = opToken.balanceOf(address(idex)) * 10 ** (19 - opDecimals);
+            synthBalance = synth.synth.balanceOf(address(idex)) * 10;
         }
 
-        uint256 kof = balanceSynth / balanceOpToken;
+        uint256 kof = synthBalance / opTokenBalance;
         if (kof <= 5) {
-            emit DEXRebalancing(_idex, _pid, kof, 0, 2);
+            emit DEXRebalancing(_pid, kof, 0, 2);
         } else if (kof >= 15) {
-            emit DEXRebalancing(_idex, _pid, kof, 0, 1);
+            emit DEXRebalancing(_pid, kof, 0, 1);
         }
     }
 
     function checkBalanceSynth(
-        address _idex,
         uint8 _pid,
         uint256 _amount
     ) internal view returns (bool) {
-        if (IERC20(factory.getSynth(_pid)).balanceOf(_idex) < _amount) {
+        if (idex.synths(_pid).synth.balanceOf(address(idex)) < _amount) {
             return true;
         } else {
             return false;
         }
     }
 
-    function checkBalanceOpToken(address _idex, uint256 _amount)
+    function checkBalanceOpToken(uint256 _amount)
         internal
         view
         returns (bool)
     {
-        if (opToken.balanceOf(_idex) < _amount) {
+        if (opToken.balanceOf(address(idex)) < _amount) {
             return true;
         } else {
             return false;

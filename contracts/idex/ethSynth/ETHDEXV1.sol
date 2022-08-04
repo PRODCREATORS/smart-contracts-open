@@ -2,17 +2,17 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 import "../utils/ISynthChef.sol";
 import "../../Lender.sol";
 import "../../PausableAccessControl.sol";
+import "../../utils/IERC20Extended.sol";
 
 contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     using SafeMath for uint256;
 
-    address public opToken; //token which will be paid for synth and will be get after selling synth
+    IERC20Extended public opToken; //token which will be paid for synth and will be get after selling synth
 
     uint8 public rateDecimals; //rate decimals
     uint8 private opDecimals; //opToken decimals
@@ -31,7 +31,7 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     uint8 public farmPid;
 
     struct Synth {
-        IERC20 synth;
+        IERC20Extended synth;
         uint8 synthDecimals;
         uint256 rate; //how much synth for 1 opToken
         uint8 rateDecimals;
@@ -46,14 +46,14 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
      * @dev Sets the values for `synth`, `opToken` and `rate`.
      */
     constructor(
-        address _opToken,
+        IERC20Extended _opToken,
         address _factory,
         address _chef,
         uint8 _farmPid,
         address _feeCollector
     ) {
         opToken = _opToken;
-        opDecimals = ERC20(_opToken).decimals(); //6
+        opDecimals = _opToken.decimals(); //6
 
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(OWNER, OWNER);
@@ -83,7 +83,7 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     }
 
     function add(
-        address _synth,
+        IERC20Extended _synth,
         uint256 _startRate,
         uint8 _pid,
         bool _crosschain
@@ -91,7 +91,7 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
         require(synths[_pid].isActive == false, "Already added");
         Synth memory newSynth = Synth({
             synth: _synth,
-            synthDecimals: ERC20(_synth).decimals(),
+            synthDecimals: _synth.decimals(),
             rate: _startRate,
             rateDecimals: 18,
             pid: _pid,
@@ -113,14 +113,14 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
         public
         exist(_pid)
         isActive(_pid)
-        returns(uint256 amountSynth)
+        returns(uint256 synthAmount)
     {
         Synth memory synth = synths[_pid];
         uint256 fee_ = _amount.div(100).mul(1);
-        amountSynth = _amount.mul(synth.rate).div(10**opDecimals);
-        IERC20(opToken).transferFrom(msg.sender, address(this), _amount);
-        IERC20(opToken).transfer(feeCollector, fee_);
-        synth.synth.transfer(msg.sender, amountSynth);
+        synthAmount = _amount.mul(synth.rate).div(10**opDecimals);
+        opToken.transferFrom(msg.sender, address(this), _amount);
+        opToken.transfer(feeCollector, fee_);
+        synth.synth.transfer(msg.sender, synthAmount);
     }
 
     /**
@@ -135,24 +135,24 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     function sell(uint8 _pid, uint256 _amount)
         public
         exist(_pid)
-        isActive(_pid)
+        isActive(_pid) returns (uint256 opTokenAmount)
     {
         //amount synth
         Synth memory synth = synths[_pid];
         uint256 fee_ = _amount.div(100).mul(1);
-        uint256 amountOpToken = _amount
+        opTokenAmount = _amount
             .mul(10**rateDecimals)
             .div(synth.rate)
             .div(10**(synth.synthDecimals - opDecimals));
-        fee_ = amountOpToken.div(100).mul(1);
-        amountOpToken = amountOpToken - fee_;
+        fee_ = opTokenAmount.div(100).mul(1);
+        opTokenAmount = opTokenAmount - fee_;
         synth.synth.transferFrom(
             msg.sender,
             address(this),
             _amount
         );
-        IERC20(opToken).transfer(msg.sender, fee_);
-        IERC20(opToken).transfer(msg.sender, amountOpToken);
+        opToken.transfer(msg.sender, fee_);
+        opToken.transfer(msg.sender, opTokenAmount);
     }
 
     /**
@@ -181,26 +181,26 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function withdrawOp(uint256 _amount, address to) public onlyRole(ADMIN) {
+    function withdrawOpTokens(uint256 _amount, address to) public onlyRole(ADMIN) {
         require(
-            IERC20(opToken).balanceOf(address(this)) >= _amount,
+            opToken.balanceOf(address(this)) >= _amount,
             "Not enough opToken to withdraw"
         );
-        IERC20(opToken).transfer(to, _amount);
+        opToken.transfer(to, _amount);
     }
 
     /**
      * @dev function for changing the token for payment
-     * @param _token op token address
+     * @param _opToken op token address
      *
      * Requirements:
      *
      * - the caller must have admin role.
      */
-    function changeOpToken(address _token) public onlyRole(ADMIN) {
-        require(_token != address(0), "Invalid address");
-        opToken = _token;
-        opDecimals = ERC20(_token).decimals();
+    function changeOpToken(IERC20Extended _opToken) public onlyRole(ADMIN) {
+        require(address(_opToken) != address(0), "Invalid address");
+        opToken = _opToken;
+        opDecimals = _opToken.decimals();
     }
 
     /**
@@ -302,8 +302,8 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
         return balance;
     }
 
-    function getOPBalance() public view returns (uint256) {
-        uint256 balance = IERC20(opToken).balanceOf(address(this));
+    function getOpTokenBalance() public view returns (uint256) {
+        uint256 balance = opToken.balanceOf(address(this));
         return balance;
     }
 
@@ -320,12 +320,12 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
         }
     }
 
-    function checkOPRebalancing(uint256 _amount)
+    function checkOpRebalancing(uint256 _amount)
         internal
         onlyRole(ADMIN)
         returns (bool)
     {
-        if (getOPBalance() < _amount) {
+        if (getOpTokenBalance() < _amount) {
             return true;
         } else {
             return false;

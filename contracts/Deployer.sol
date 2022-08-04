@@ -7,6 +7,7 @@ import "./idex/ethSynth/ETHSynthChefV1.sol";
 import "./idex/ethSynth/ETHDEXV1.sol";
 import "./Pauser.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./utils/IERC20Extended.sol";
 import "./Lending.sol";
 import "./Pool.sol";
 
@@ -54,7 +55,7 @@ contract Deployer is AccessControl {
     }
 
     function deployIDEX(
-        address opToken,
+        IERC20Extended opToken,
         address synthFactory,
         address chef,
         uint8 farmPid,
@@ -64,7 +65,7 @@ contract Deployer is AccessControl {
     }
 
     function deploy(
-        address opToken,
+        IERC20Extended opToken,
         address router,
         address factory,
         address convex,
