@@ -3,9 +3,10 @@ pragma solidity ^0.8.12;
 
 import "./ETHSynthV1.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "../../PausableAccessControl.sol";
 
 /** @dev Contract that manages synth tokens */
-contract ETHSynthFactoryV1 is AccessControlEnumerable {
+contract ETHSynthFactoryV1 is AccessControlEnumerable, PausableAccessControl {
     bytes32 public constant SYNT_HASH =
         keccak256(abi.encodePacked(type(ETHSynthV1).creationCode));
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -29,6 +30,7 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
     function createSynth(uint256 _pid)
         external
         onlyRole(ADMIN_ROLE)
+        whenNotPaused 
         returns (address synth)
     {
         bytes32 salt = keccak256(abi.encodePacked(_pid));
@@ -54,7 +56,7 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
         uint256 _pid,
         uint256 _amount,
         address _to
-    ) external onlyRole(MINT_ROLE) {
+    ) external onlyRole(MINT_ROLE) whenNotPaused {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
         ETHSynthV1(synth).mint(_to, _amount);
@@ -74,7 +76,7 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
         uint256 _pid,
         address _from,
         uint256 _amount
-    ) external onlyRole(MINT_ROLE) {
+    ) external onlyRole(MINT_ROLE) whenNotPaused {
         address synth = getSynth[_pid];
         require(synth != address(0), "No such synth");
         ETHSynthV1(synth).burn(_from, _amount);
@@ -92,7 +94,7 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
      *
      * May emit a {RoleGranted} event.
      */
-    function addMinter(address _minter) external onlyRole(ADMIN_ROLE) {
+    function addMinter(address _minter) external onlyRole(ADMIN_ROLE) whenNotPaused {
         grantRole(MINT_ROLE, _minter);
     }
 
@@ -107,14 +109,14 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
      *
      * May emit a {RoleRevoked} event.
      */
-    function removeMinter(address _minter) external onlyRole(ADMIN_ROLE) {
+    function removeMinter(address _minter) external onlyRole(ADMIN_ROLE) whenNotPaused {
         revokeRole(MINT_ROLE, _minter);
     }
 
     /**
      * @dev Returns addresses that control mint role
      */
-    function minters() external view returns (address[] memory) {
+    function minters() external view whenNotPaused returns (address[] memory) {
         uint256 _mintersLength = getRoleMemberCount(MINT_ROLE);
         require(_mintersLength > 0, "No minters");
         address[] memory _minters = new address[](_mintersLength);
@@ -122,5 +124,17 @@ contract ETHSynthFactoryV1 is AccessControlEnumerable {
             _minters[i] = getRoleMember(MINT_ROLE, i);
         }
         return _minters;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlEnumerable, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function _grantRole(bytes32 role, address account) internal virtual override(AccessControlEnumerable, AccessControl) {
+        return super._grantRole(role, account);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal virtual override(AccessControlEnumerable, AccessControl) {
+        return super._revokeRole(role, account);
     }
 }

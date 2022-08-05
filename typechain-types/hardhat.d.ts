@@ -77,10 +77,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Deployer__factory>;
     getContractFactory(
-      name: "EnUSD",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.EnUSD__factory>;
-    getContractFactory(
       name: "ETHDEXV1",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ETHDEXV1__factory>;
@@ -137,10 +133,6 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Lending__factory>;
     getContractFactory(
-      name: "Liquidation",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.Liquidation__factory>;
-    getContractFactory(
       name: "PausableAccessControl",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.PausableAccessControl__factory>;
@@ -172,14 +164,6 @@ declare module "hardhat/types/runtime" {
       name: "Router",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Router__factory>;
-    getContractFactory(
-      name: "SimpleToken",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.SimpleToken__factory>;
-    getContractFactory(
-      name: "SilentStaking",
-      signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.SilentStaking__factory>;
     getContractFactory(
       name: "PausableMock",
       signerOrOptions?: ethers.Signer | FactoryOptions
@@ -270,11 +254,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Deployer>;
     getContractAt(
-      name: "EnUSD",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.EnUSD>;
-    getContractAt(
       name: "ETHDEXV1",
       address: string,
       signer?: ethers.Signer
@@ -345,11 +324,6 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Lending>;
     getContractAt(
-      name: "Liquidation",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.Liquidation>;
-    getContractAt(
       name: "PausableAccessControl",
       address: string,
       signer?: ethers.Signer
@@ -389,16 +363,6 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.Router>;
-    getContractAt(
-      name: "SimpleToken",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.SimpleToken>;
-    getContractAt(
-      name: "SilentStaking",
-      address: string,
-      signer?: ethers.Signer
-    ): Promise<Contracts.SilentStaking>;
     getContractAt(
       name: "PausableMock",
       address: string,

@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "../../PausableAccessControl.sol";
 
 interface Curve {
     function calc_token_amount(uint256[2] memory, bool is_deposit)
@@ -55,7 +56,7 @@ interface ConvexReward {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
+contract ETHSynthChefV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     
     using SafeMath for uint256;
 
@@ -112,15 +113,15 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
 
     receive() external payable {}
 
-    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) {
+    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) whenNotPaused {
         factory = _factory;
     }
 
-    function setRouter(address _router) external onlyRole(ADMIN_ROLE) {
+    function setRouter(address _router) external onlyRole(ADMIN_ROLE) whenNotPaused {
         router = _router;
     }
 
-    function deposit(uint256 _pid) external payable onlyRole(ADMIN_ROLE) {
+    function deposit(uint256 _pid) external payable onlyRole(ADMIN_ROLE) whenNotPaused {
         uint256 amountLPs = addLiquidity(msg.value, WETH, _pid);
         _deposit(amountLPs, _pid);
         _compound(_pid);
@@ -131,7 +132,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         uint256 _amount,
         address _token,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) {
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = addLiquidity(_amount, _token, _poolID);
         _deposit(amountLPs, _poolID);
@@ -139,7 +140,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         emit Deposit(amountLPs);
     }
 
-    function _deposit(uint256 _amount, uint256 _poolID) internal {
+    function _deposit(uint256 _amount, uint256 _poolID) internal whenNotPaused {
         if (
             IERC20(poolsArray[_poolID].lp).allowance(address(this), convex) == 0
         ) {
@@ -151,6 +152,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function getSwapPath(address _tokenFrom, address _tokenTo)
         internal
         view
+        whenNotPaused 
         returns (address[] memory path)
     {
         address lpPair = IUniswapV2Factory(factory).getPair(
@@ -178,6 +180,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         uint256 _poolID
     )
         public
+        whenNotPaused 
         returns (
             address token0,
             address token1,
@@ -203,7 +206,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         uint256 _amount,
         address _tokenFrom,
         uint256 _poolID
-    ) internal returns (uint256) {
+    ) internal whenNotPaused returns (uint256) {
         uint256 amountLPs;
         (
             address token0,
@@ -261,6 +264,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
 
     function swapETH(uint256 _amount, address _tokenTo)
         internal
+        whenNotPaused 
         returns (uint256)
     {
         if (_tokenTo == IUniswapV2Router02(router).WETH()) {
@@ -282,6 +286,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
 
     function swapToETH(uint256 _amount, address _fromToken)
         internal
+        whenNotPaused 
         returns (uint256)
     {
         address[] memory path = new address[](2);
@@ -300,6 +305,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
 
     function swapTokens(uint256 _amount, address[] memory path)
         internal
+        whenNotPaused 
         returns (uint256)
     {
         if (IERC20(path[0]).allowance(address(this), router) == 0) {
@@ -318,16 +324,16 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         return amountLPs[amountLPs.length - 1];
     }
 
-    function harvest(uint256 _pid) internal {
+    function harvest(uint256 _pid) internal whenNotPaused {
         ConvexReward(poolsArray[_pid].convexreward).getReward();
     }
 
-    function compound(uint256 _pid) external onlyRole(ADMIN_ROLE) {
+    function compound(uint256 _pid) external onlyRole(ADMIN_ROLE) whenNotPaused  {
         harvest(_pid);
         _compound(_pid);
     }
 
-    function _compound(uint256 _pid) internal {
+    function _compound(uint256 _pid) internal whenNotPaused {
         uint256 amountToken = IERC20(rewardToken).balanceOf(address(this));
         if (amountToken > 0) {
             uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
@@ -346,6 +352,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         uint256 _poolID /// убрал uint256 _pid,
     )
         internal
+        whenNotPaused
         returns (
             address token0,
             address token1,
@@ -395,7 +402,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         address _toToken,
         address payable _to,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) {
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         ConvexReward(poolsArray[_poolID].convexreward).withdrawAndUnwrap(
             _amount,
             true
@@ -440,6 +447,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function getAmountsTokensInLP(uint256 _pid)
         public
         view
+        whenNotPaused 
         returns (
             uint256 amount0,
             uint256 amount1,
@@ -465,7 +473,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         uint256 _amount,
         address _fromToken,
         address _toToken
-    ) internal view returns (uint256) {
+    ) internal view whenNotPaused returns (uint256) {
         uint256 expectedReturn = _amount;
         address[] memory path = new address[](2);
         path[0] = _fromToken;
@@ -480,6 +488,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function convertTokenToStable(address _tokenAddress, uint256 _amount)
         internal
         view
+        whenNotPaused 
         returns (uint256 amountStable)
     {
         bool flag = false;
@@ -511,6 +520,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function convertStableToToken(address _tokenAddress, uint256 _amountStable)
         internal
         view
+        whenNotPaused 
         returns (uint256 amountToken)
     {
         if (_tokenAddress != WETH) {
@@ -528,6 +538,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function getBalanceOnFarms(uint256 _pid)
         internal
         view
+        whenNotPaused 
         returns (uint256 totalAmount)
     {
         (
@@ -540,32 +551,32 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         totalAmount += convertTokenToStable(token1, amount1); //convert token's price to stablecoins price
     }
 
-    function addStablecoin(address coin) external onlyRole(ADMIN_ROLE) {
+    function addStablecoin(address coin) external onlyRole(ADMIN_ROLE) whenNotPaused {
         require(coin != address(0), "Bad address");
         stablecoins.push(coin);
     }
 
-    function cleanStablecoins() external onlyRole(ADMIN_ROLE) {
+    function cleanStablecoins() external onlyRole(ADMIN_ROLE) whenNotPaused {
         for (uint256 i = 0; i < stablecoins.length; i++) {
             delete stablecoins[i];
         }
     }
 
-    function getStablecoin(uint256 pid) external view returns (address stable) {
+    function getStablecoin(uint256 pid) external view whenNotPaused returns (address stable) {
         stable = stablecoins[pid];
     }
 
-    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) {
+    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) whenNotPaused {
         fee = _fee;
         feeRate = _feeRate;
     }
 
-    function setRewardToken(address _newToken) external onlyRole(ADMIN_ROLE) {
+    function setRewardToken(address _newToken) external onlyRole(ADMIN_ROLE) whenNotPaused {
         require(_newToken != address(0), "Invalid address");
         rewardToken = _newToken;
     }
 
-    function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) {
+    function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) whenNotPaused {
         require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }
@@ -579,7 +590,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
         address _convexreward,
         address _wtoken0,
         address _wtoken1
-    ) external onlyRole(ADMIN_ROLE) {
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         poolsArray.push(
             Pool(
                 _pool,
@@ -597,6 +608,7 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
     function convertStableToLp(uint256 _pid, uint256 _amount)
         external
         view
+        whenNotPaused 
         returns (uint256)
     {
         address token0 = poolsArray[_pid].token0;
@@ -608,5 +620,17 @@ contract ETHSynthChefV1 is AccessControlEnumerable, Lender {
             true
         );
         return liquidity;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlEnumerable, AccessControl) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
+
+    function _grantRole(bytes32 role, address account) internal virtual override(AccessControlEnumerable, AccessControl) {
+        return super._grantRole(role, account);
+    }
+
+    function _revokeRole(bytes32 role, address account) internal virtual override(AccessControlEnumerable, AccessControl) {
+        return super._revokeRole(role, account);
     }
 }
