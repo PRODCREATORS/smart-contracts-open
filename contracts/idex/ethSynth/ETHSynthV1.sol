@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 
 contract ETHSynthV1 is ERC20, Ownable {
     address public factory;
@@ -12,8 +13,10 @@ contract ETHSynthV1 is ERC20, Ownable {
 
     IERC20 public token1;
     IERC20 public token2;
+    IERC20 public opToken;
 
     IUniswapV2Pair private pair;
+    IUniswapV2Router01 private router;
 
     uint256 private token1InitialAmount;
     uint256 private token2InitialAmount;
@@ -22,13 +25,15 @@ contract ETHSynthV1 is ERC20, Ownable {
     /**
      * @dev Sets the values for {factory}.
      */
-    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1InitialAmount, uint256 _token2InitialAmount, IUniswapV2Pair _pair) ERC20("ETHSynth", "SYNTH") {
+    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1InitialAmount, uint256 _token2InitialAmount, IUniswapV2Pair _pair, IUniswapV2Router01 _router, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
         factory = msg.sender;
         token1 = _token1;
         token2 = _token2;
         token1InitialAmount = _token1InitialAmount;
         token2InitialAmount = _token2InitialAmount;
         pair = _pair;
+        router = _router;
+        opToken = _opToken;
     }
 
     /**
@@ -80,6 +85,18 @@ contract ETHSynthV1 is ERC20, Ownable {
             token1Amount = t1;
             token2Amount = t2;
         }
+    }
+    
+    function getPrice() public view returns(uint256 price) {
+        (uint256 token1Amount, uint256 token2Amount,) = pair.getReserves();
+        address[] memory path = new address[](2);
+        path[0] = address(token1);
+        path[1] = address(opToken);
+        price = router.getAmountsOut(token1Amount, path)[0];
+        path = new address[](2);
+        path[0] = address(token2);
+        path[1] = address(opToken);
+        price += router.getAmountsOut(token2Amount, path)[0];
     }
 
     /**
