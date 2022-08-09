@@ -43,7 +43,7 @@ contract ETHSynthV1 is ERC20, Ownable {
     }
 
     /**
-     * @dev Returns the amounts of token1 and token2 which 1 Synth is representing at the moment
+     * @dev Returns the amounts of token1 and token2 which are righnt now on the farm behind this Synth
     */
     function getAmounts() public view returns(uint256 token1Amount, uint256 token2Amount) {
         (uint256 token1Reserves, uint256 token2Reserves,) = pair.getReserves();
@@ -61,12 +61,15 @@ contract ETHSynthV1 is ERC20, Ownable {
         path[0] = address(token2);
         path[1] = address(opToken);
         price += router.getAmountsOut(token2Amount, path)[0];
+        price /= totalSynthSupply;
     }
 
-    function addSupply(uint256 _addedSupply, uint256 _token1AmountIn, uint256 _token2AmountIn) external onlyOwner {
-        token1AmountIn = (token1AmountIn * totalSynthSupply + _token1AmountIn * _addedSupply) / (totalSynthSupply + _addedSupply);
-        token2AmountIn = (token2AmountIn * totalSynthSupply + _token2AmountIn * _addedSupply) / (totalSynthSupply + _addedSupply);
-        totalSynthSupply += _addedSupply;
+    /**
+     * @dev This function should be called when we add liquidity during compound
+    */
+    function addAmounts(uint256 _token1AmountIn, uint256 _token2AmountIn) external onlyOwner {
+        token1AmountIn += _token1AmountIn;
+        token2AmountIn += _token2AmountIn;
     }
 
     /**
