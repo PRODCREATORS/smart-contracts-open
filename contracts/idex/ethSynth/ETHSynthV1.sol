@@ -43,15 +43,15 @@ contract ETHSynthV1 is ERC20, Ownable {
         (uint256 token1Reserves, uint256 token2Reserves,) = pair.getReserves();
         uint256 precision = 10 ** 10;
         uint256 price = (token1Reserves * precision) / token2Reserves; // current price (multiplied by precision)
-        uint256 initialPrice = (token1InitialAmount * precision) / token2InitialAmount;
+        uint256 initialPrice = (token1InitialAmount * precision) / token2InitialAmount; // initial price (we need it to become same as current)
         uint256 left;
         uint256 right;
         uint256 mid;
         uint256 t1;
         uint256 t2;
         uint256 p;
-        if (initialPrice < price) {
-            left = 0;
+        if (initialPrice < price) { // binary search for determination of actual token1Amount and token2Amount
+            left = 0;               // Here we are looking for a value which we need to subtract from token1Amount or token2Amount
             right = token2InitialAmount;
             while (right - left > 1) {
                 mid = (right + left) / 2;
