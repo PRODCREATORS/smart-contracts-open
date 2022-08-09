@@ -24,16 +24,19 @@ contract ETHSynthV1 is ERC20, Ownable {
     uint256 private token1InitialAmount;
     uint256 private token2InitialAmount;
 
+    uint256 private totalSynthSupply;
+
 
     /**
      * @dev Sets the values for {factory}.
      */
-    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1InitialAmount, uint256 _token2InitialAmount, IUniswapV2Pair _pair, IUniswapV2Router01 _router, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
+    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1InitialAmount, uint256 _token2InitialAmount, uint256 _totalSynthSupply, IUniswapV2Pair _pair, IUniswapV2Router01 _router, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
         factory = msg.sender;
         token1 = _token1;
         token2 = _token2;
         token1InitialAmount = _token1InitialAmount;
         token2InitialAmount = _token2InitialAmount;
+        totalSynthSupply = _totalSynthSupply;
         pair = _pair;
         router = _router;
         opToken = _opToken;
