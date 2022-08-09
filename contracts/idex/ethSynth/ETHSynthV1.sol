@@ -21,8 +21,8 @@ contract ETHSynthV1 is ERC20, Ownable {
     IUniswapV2Pair private pair;
     IUniswapV2Router01 private router;
 
-    uint256 private token1InitialAmount;
-    uint256 private token2InitialAmount;
+    uint256 private token1AmountIn;
+    uint256 private token2AmountIn;
 
     uint256 private totalSynthSupply;
 
@@ -30,12 +30,12 @@ contract ETHSynthV1 is ERC20, Ownable {
     /**
      * @dev Sets the values for {factory}.
      */
-    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1InitialAmount, uint256 _token2InitialAmount, uint256 _totalSynthSupply, IUniswapV2Pair _pair, IUniswapV2Router01 _router, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
+    constructor(IERC20 _token1, IERC20 _token2, uint256 _token1AmountIn, uint256 _token2AmountIn, uint256 _totalSynthSupply, IUniswapV2Pair _pair, IUniswapV2Router01 _router, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
         factory = msg.sender;
         token1 = _token1;
         token2 = _token2;
-        token1InitialAmount = _token1InitialAmount;
-        token2InitialAmount = _token2InitialAmount;
+        token1AmountIn = _token1AmountIn;
+        token2AmountIn = _token2AmountIn;
         totalSynthSupply = _totalSynthSupply;
         pair = _pair;
         router = _router;
@@ -47,8 +47,8 @@ contract ETHSynthV1 is ERC20, Ownable {
     */
     function getAmounts() public view returns(uint256 token1Amount, uint256 token2Amount) {
         (uint256 token1Reserves, uint256 token2Reserves,) = pair.getReserves();
-        token2Amount = uint256((token1InitialAmount * token2InitialAmount * token2Reserves) / token1Reserves).sqrt();
-        token1Amount = uint256((token1InitialAmount * token2InitialAmount * token1Reserves) / token2Reserves).sqrt();
+        token2Amount = uint256((token1AmountIn * token2AmountIn * token2Reserves) / token1Reserves).sqrt();
+        token1Amount = uint256((token1AmountIn * token2AmountIn * token1Reserves) / token2Reserves).sqrt();
     }
     
     function getPrice() public view returns(uint256 price) {
@@ -61,6 +61,12 @@ contract ETHSynthV1 is ERC20, Ownable {
         path[0] = address(token2);
         path[1] = address(opToken);
         price += router.getAmountsOut(token2Amount, path)[0];
+    }
+
+    function addSupply(uint256 _addedSupply, uint256 _token1AmountIn, uint256 _token2AmountIn) external onlyOwner {
+        token1AmountIn = (token1AmountIn * totalSynthSupply + _token1AmountIn * _addedSupply) / (totalSynthSupply + _addedSupply);
+        token2AmountIn = (token2AmountIn * totalSynthSupply + _token2AmountIn * _addedSupply) / (totalSynthSupply + _addedSupply);
+        totalSynthSupply += _addedSupply;
     }
 
     /**
