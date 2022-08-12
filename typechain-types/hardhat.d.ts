@@ -109,6 +109,34 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IMasterChef__factory>;
     getContractFactory(
+      name: "ETHDEXV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.ETHDEXV1__factory>;
+    getContractFactory(
+      name: "IGauge",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IGauge__factory>;
+    getContractFactory(
+      name: "IVelodromeRouter",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IVelodromeRouter__factory>;
+    getContractFactory(
+      name: "OptimismSynthChefV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.OptimismSynthChefV1__factory>;
+    getContractFactory(
+      name: "OptimismSynthFactoryV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.OptimismSynthFactoryV1__factory>;
+    getContractFactory(
+      name: "OptimismSynthV1",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.OptimismSynthV1__factory>;
+    getContractFactory(
+      name: "IMasterChef",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IMasterChef__factory>;
+    getContractFactory(
       name: "ISynthChef",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.ISynthChef__factory>;
@@ -288,6 +316,41 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.ETHSynthV1>;
+    getContractAt(
+      name: "IMasterChef",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IMasterChef>;
+    getContractAt(
+      name: "ETHDEXV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.ETHDEXV1>;
+    getContractAt(
+      name: "IGauge",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IGauge>;
+    getContractAt(
+      name: "IVelodromeRouter",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IVelodromeRouter>;
+    getContractAt(
+      name: "OptimismSynthChefV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.OptimismSynthChefV1>;
+    getContractAt(
+      name: "OptimismSynthFactoryV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.OptimismSynthFactoryV1>;
+    getContractAt(
+      name: "OptimismSynthV1",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.OptimismSynthV1>;
     getContractAt(
       name: "IMasterChef",
       address: string,
