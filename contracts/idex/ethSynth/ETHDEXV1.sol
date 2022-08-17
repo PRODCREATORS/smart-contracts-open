@@ -329,7 +329,7 @@ contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
         whenNotPaused
         returns (bool)
     {
-        return getOpTokenBalance(_pid) < _amount;
+        return getOpTokenBalance() < _amount;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlEnumerable, AccessControl) returns (bool) {

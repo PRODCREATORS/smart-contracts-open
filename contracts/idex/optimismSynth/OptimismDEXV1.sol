@@ -117,7 +117,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
         returns(uint256 synthAmount)
     {
         Synth memory synth = synths[_pid];
-        uint256 fee_ = _amount.div(100).mul(1);
+        uint256 fee_ = _amount.mul(fee).div(feeRate);
         synthAmount = _amount.mul(synth.rate).div(10**opDecimals);
         opToken.transferFrom(msg.sender, address(this), _amount);
         opToken.transfer(feeCollector, fee_);
@@ -272,7 +272,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function pauseSynth(uint8 _pid) public exist(_pid) whenNotPaused {
+    function pauseSynth(uint8 _pid) public exist(_pid) whenNotPaused onlyRole(ADMIN) {
         synths[_pid].isActive = !synths[_pid].isActive;
     }
 
@@ -313,31 +313,23 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
 
     //Give Admin Role to IDEX at first
     function checkRebalancingSynth(uint8 _pid, uint256 _amount)
-        internal
+        external
         view
         onlyRole(ADMIN)
         whenNotPaused
         returns (bool)
     {
-        if (getSynthBalance(_pid) < _amount) {
-            return true;
-        } else {
-            return false;
-        }
+        return getSynthBalance(_pid) < _amount;
     }
 
     function checkOpRebalancing(uint256 _amount)
-        internal
+        external
         view
         onlyRole(ADMIN)
         whenNotPaused
         returns (bool)
     {
-        if (getOpTokenBalance() < _amount) {
-            return true;
-        } else {
-            return false;
-        }
+        return getOpTokenBalance() < _amount;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlEnumerable, AccessControl) returns (bool) {

@@ -4,7 +4,7 @@ import { ethers } from "hardhat"
 import { Pauser} from "../typechain-types/contracts";
 import { PausableMock } from "../typechain-types/contracts/test/PausableMock";
 
-describe("Stake", function () {
+describe("Pauser", function () {
     let pauser: Pauser
     let owner: Signer;
     let pausableContracts: PausableMock[] = [];

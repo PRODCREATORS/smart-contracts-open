@@ -199,7 +199,7 @@ contract OptimismSynthChefV1 is
         emit Deposit(amountLPs);
     }
 
-    function _deposit(uint256 _amount, uint256 _poolID) internal whenNotPaused {
+    function _deposit(uint256 _amount, uint256 _poolID) internal {
         Pool memory pool = poolsArray[_poolID];
         if (
             pool.LPToken.allowance(address(this), address(pool.gauge)) < _amount
@@ -227,7 +227,6 @@ contract OptimismSynthChefV1 is
     function _getSwapRoutes(address _tokenFrom, address _tokenTo)
         internal
         view
-        whenNotPaused
         returns (route[] memory routes)
     {
         (address lpPair, bool stable) = _getBetterPair(_tokenFrom, _tokenTo);
@@ -269,7 +268,7 @@ contract OptimismSynthChefV1 is
         uint256 _amount,
         address _tokenFrom,
         uint256 _poolID
-    ) internal whenNotPaused returns (uint256) {
+    ) internal returns (uint256) {
         uint256 amountLPs;
         (
             address token0,
@@ -328,7 +327,6 @@ contract OptimismSynthChefV1 is
 
     function swapETH(uint256 _amount, address _tokenTo)
         internal
-        whenNotPaused
         returns (uint256)
     {
         if (_tokenTo == WETH) {
@@ -348,7 +346,6 @@ contract OptimismSynthChefV1 is
 
     function swapToETH(uint256 _amount, address _fromToken)
         internal
-        whenNotPaused
         returns (uint256)
     {
         route[] memory routes = new route[](1);
@@ -365,7 +362,6 @@ contract OptimismSynthChefV1 is
 
     function _swapTokens(uint256 _amount, route[] memory routes)
         internal
-        whenNotPaused
         returns (uint256)
     {
         if (IERC20(routes[0].from).allowance(address(this), address(velodromeRouter)) == 0) {
@@ -383,7 +379,7 @@ contract OptimismSynthChefV1 is
         return amounts[amounts.length - 1];
     }
 
-    function _harvest(uint256 _poolID) internal whenNotPaused {
+    function _harvest(uint256 _poolID) internal {
         address[] memory tokens = new address[](1);
         tokens[0] = address(rewardToken);
         poolsArray[_poolID].gauge.getReward(address(this), tokens);
@@ -398,7 +394,7 @@ contract OptimismSynthChefV1 is
         _compound(_pid);
     }
 
-    function _compound(uint256 _pid) internal whenNotPaused {
+    function _compound(uint256 _pid) internal {
         uint256 amountToken = rewardToken.balanceOf(address(this));
         if (amountToken > 0) {
             uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
@@ -421,7 +417,6 @@ contract OptimismSynthChefV1 is
         uint256 _poolID
     )
         internal
-        whenNotPaused
         returns (
             address token0,
             address token1,
@@ -522,7 +517,7 @@ contract OptimismSynthChefV1 is
         uint256 _amount,
         address _fromToken,
         address _toToken
-    ) internal view whenNotPaused returns (uint256 expectedReturn) {
+    ) internal view returns (uint256 expectedReturn) {
         (, bool stable) = _getBetterPair(_fromToken, _toToken);
         route[] memory routes = new route[](1);
         routes[0] = route({from: _fromToken, to: _toToken, stable: stable});
@@ -551,7 +546,6 @@ contract OptimismSynthChefV1 is
     function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
         internal
         view
-        whenNotPaused
         returns (uint256 amountToken)
     {
         if (_tokenAddress == stablecoin)
