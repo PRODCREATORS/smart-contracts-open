@@ -117,6 +117,14 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IGauge__factory>;
     getContractFactory(
+      name: "IPair",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IPair__factory>;
+    getContractFactory(
+      name: "IVelodromeFactory",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IVelodromeFactory__factory>;
+    getContractFactory(
       name: "IVelodromeRouter",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.IVelodromeRouter__factory>;
@@ -331,6 +339,16 @@ declare module "hardhat/types/runtime" {
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.IGauge>;
+    getContractAt(
+      name: "IPair",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IPair>;
+    getContractAt(
+      name: "IVelodromeFactory",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IVelodromeFactory>;
     getContractAt(
       name: "IVelodromeRouter",
       address: string,

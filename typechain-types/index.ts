@@ -58,6 +58,10 @@ export type { IMasterChef } from "./contracts/idex/ethSynth/utils/IBooster.sol/I
 export { IMasterChef__factory } from "./factories/contracts/idex/ethSynth/utils/IBooster.sol/IMasterChef__factory";
 export type { IGauge } from "./contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IGauge";
 export { IGauge__factory } from "./factories/contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IGauge__factory";
+export type { IPair } from "./contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IPair";
+export { IPair__factory } from "./factories/contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IPair__factory";
+export type { IVelodromeFactory } from "./contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IVelodromeFactory";
+export { IVelodromeFactory__factory } from "./factories/contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IVelodromeFactory__factory";
 export type { IVelodromeRouter } from "./contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IVelodromeRouter";
 export { IVelodromeRouter__factory } from "./factories/contracts/idex/optimismSynth/OptimismSynthChefV1.sol/IVelodromeRouter__factory";
 export type { OptimismSynthChefV1 } from "./contracts/idex/optimismSynth/OptimismSynthChefV1.sol/OptimismSynthChefV1";

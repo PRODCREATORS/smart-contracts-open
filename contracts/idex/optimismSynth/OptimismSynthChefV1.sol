@@ -23,7 +23,14 @@ interface IGauge {
     function balanceOf(address user) external view returns (uint);
 }
 
+struct route {
+    address from;
+    address to;
+    bool stable;
+}
+
 interface IVelodromeRouter {
+
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -73,6 +80,33 @@ interface IVelodromeRouter {
         bool stable,
         uint liquidity
     ) external view returns (uint amountA, uint amountB);
+
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        route[] calldata routes,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+
+    function swapExactETHForTokens(uint amountOutMin, route[] calldata routes, address to, uint deadline)
+    external
+    payable
+    returns (uint[] memory amounts);
+
+    function swapExactTokensForETH(uint amountIn, uint amountOutMin, route[] calldata routes, address to, uint deadline)
+    external
+    returns (uint[] memory amounts);
+
+    function getAmountsOut(uint amountIn, route[] memory routes) external view returns (uint[] memory amounts);
+}
+
+interface IVelodromeFactory {
+    function getPair(address tokenA, address token, bool stable) external view returns (address);
+}
+
+interface IPair {
+    function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
 }
 
 contract OptimismSynthChefV1 is
@@ -82,8 +116,7 @@ contract OptimismSynthChefV1 is
 {
     using SafeMath for uint256;
 
-    IUniswapV2Router02 public router;
-    address public factory;
+    IVelodromeFactory public  factory;
     IERC20 public rewardToken;
     address public WETH;
     IVelodromeRouter public velodromeRouter;
@@ -91,7 +124,7 @@ contract OptimismSynthChefV1 is
     uint256 public fee;
     uint256 public feeRate = 1e4;
     address public treasury;
-    address[] private stablecoins;
+    address private stablecoin;
     Pool[] public poolsArray;
 
     event Deposit(uint256 amount);
@@ -110,18 +143,19 @@ contract OptimismSynthChefV1 is
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
 
     constructor(
-        IUniswapV2Router02 _router,
         IVelodromeRouter _velodromeRouter,
-        address _factory,
+        address _WETH,
+        address _stablecoin,
+        IVelodromeFactory _factory,
         uint256 _fee,
         address _treasury,
         IERC20 _rewardToken
     ) {
-        router = _router;
         velodromeRouter = _velodromeRouter;
         factory = _factory;
         rewardToken = _rewardToken;
-        WETH = router.WETH();
+        WETH = _WETH;
+        stablecoin = _stablecoin;
         fee = _fee;
         treasury = _treasury;
 
@@ -133,20 +167,12 @@ contract OptimismSynthChefV1 is
 
     receive() external payable {}
 
-    function setFactory(address _factory)
+    function setFactory(IVelodromeFactory _factory)
         external
         onlyRole(ADMIN_ROLE)
         whenNotPaused
     {
         factory = _factory;
-    }
-
-    function setRouter(IUniswapV2Router02 _router)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        router = _router;
     }
 
     function deposit(uint256 _poolID)
@@ -183,29 +209,36 @@ contract OptimismSynthChefV1 is
         pool.gauge.deposit(_amount, 0);
     }
 
-    function getSwapPath(address _tokenFrom, address _tokenTo)
+    function _getBetterPair(address _tokenFrom, address _tokenTo) internal view returns(address pair, bool stable) {
+        address stableLpPair = factory.getPair(_tokenFrom, _tokenTo, true);
+        address notStableLpPair = factory.getPair(_tokenFrom, _tokenTo, false);
+        if (stableLpPair == address(0)) 
+            return (notStableLpPair, false);
+        if (notStableLpPair == address(0))
+            return (stableLpPair, true);
+        (uint256 amount0Stable , ,) = IPair(stableLpPair).getReserves();
+        (uint256 amount0NotStable , ,) = IPair(notStableLpPair).getReserves();
+        if (amount0Stable > amount0NotStable)
+            return (stableLpPair, true);
+        else
+            return (notStableLpPair, false);
+    }
+
+    function _getSwapRoutes(address _tokenFrom, address _tokenTo)
         internal
         view
         whenNotPaused
-        returns (address[] memory path)
+        returns (route[] memory routes)
     {
-        address lpPair = IUniswapV2Factory(factory).getPair(
-            _tokenFrom,
-            _tokenTo
-        );
-
+        (address lpPair, bool stable) = _getBetterPair(_tokenFrom, _tokenTo);
         if (lpPair != address(0)) {
-            path = new address[](2);
-            path[0] = _tokenFrom;
-            path[1] = _tokenTo;
+            routes = new route[](1);
+            routes[0] = route({from: _tokenFrom, to: _tokenTo, stable: stable});
         } else {
-            path = new address[](3);
-            path[0] = _tokenFrom;
-            path[1] = WETH;
-            path[2] = _tokenTo;
+            routes = new route[](2);
+            routes[0] = route({from: _tokenFrom, to: WETH, stable: false});
+            routes[1] = route({from: WETH, to: _tokenTo, stable: false});
         }
-
-        return path;
     }
 
     function convertTokensToProvideLiquidity(
@@ -224,15 +257,11 @@ contract OptimismSynthChefV1 is
     {
         token0 = address(poolsArray[_poolID].token0);
         token1 = address(poolsArray[_poolID].token1);
-        if (_tokenFrom == WETH) {
-            amount0 = swapETH(_amount / 2, token0);
-            amount1 = swapETH(_amount / 2, token1);
-        } else
-            amount0 = token0 != _tokenFrom
-                ? _swapTokens(_amount / 2, getSwapPath(_tokenFrom, token0))
+        amount0 = token0 != _tokenFrom
+                ? _swapTokens(_amount / 2, _getSwapRoutes(_tokenFrom, token0))
                 : _amount / 2;
         amount1 = token1 != _tokenFrom
-            ? _swapTokens(_amount / 2, getSwapPath(_tokenFrom, token1))
+            ? _swapTokens(_amount / 2, _getSwapRoutes(_tokenFrom, token1))
             : _amount / 2;
     }
 
@@ -302,21 +331,19 @@ contract OptimismSynthChefV1 is
         whenNotPaused
         returns (uint256)
     {
-        if (_tokenTo == router.WETH()) {
+        if (_tokenTo == WETH) {
             return _amount;
         }
-        address[] memory path = new address[](2);
-        path[0] = IUniswapV2Router02(router).WETH();
-        path[1] = _tokenTo;
-        uint256[] memory amountLPs = IUniswapV2Router02(router)
-            .swapExactETHForTokens{value: _amount}(
+        route[] memory routes = new route[](1);
+        routes[0] = route({from: WETH, to: _tokenTo, stable: false});
+        uint256[] memory amounts = velodromeRouter.swapExactETHForTokens{value: _amount}(
             0,
-            path,
+            routes,
             address(this),
             block.timestamp
         );
 
-        return amountLPs[1];
+        return amounts[1];
     }
 
     function swapToETH(uint256 _amount, address _fromToken)
@@ -324,32 +351,31 @@ contract OptimismSynthChefV1 is
         whenNotPaused
         returns (uint256)
     {
-        address[] memory path = new address[](2);
-        path[0] = _fromToken;
-        path[1] = router.WETH();
-        uint256[] memory amounts = router.swapExactTokensForETH(
+        route[] memory routes = new route[](1);
+        routes[0] = route({from: _fromToken, to: WETH, stable: false});
+        uint256[] memory amounts = velodromeRouter.swapExactTokensForETH(
             _amount,
             1,
-            path,
+            routes,
             address(this),
             block.timestamp
         );
         return amounts[1];
     }
 
-    function _swapTokens(uint256 _amount, address[] memory path)
+    function _swapTokens(uint256 _amount, route[] memory routes)
         internal
         whenNotPaused
         returns (uint256)
     {
-        if (IERC20(path[0]).allowance(address(this), address(router)) == 0) {
-            IERC20(path[0]).approve(address(router), type(uint256).max);
+        if (IERC20(routes[0].from).allowance(address(this), address(velodromeRouter)) == 0) {
+            IERC20(routes[0].from).approve(address(velodromeRouter), type(uint256).max);
         }
 
-        uint256[] memory amounts = router.swapExactTokensForTokens(
+        uint256[] memory amounts = velodromeRouter.swapExactTokensForTokens(
             _amount,
             0,
-            path,
+            routes,
             address(this),
             block.timestamp
         );
@@ -407,8 +433,8 @@ contract OptimismSynthChefV1 is
         token0 = address(pool.token0);
         token1 = address(pool.token1);
 
-        if (pool.LPToken.allowance(address(this), address(router)) < _amount) {
-            pool.LPToken.approve(address(router), type(uint256).max);
+        if (pool.LPToken.allowance(address(this), address(velodromeRouter)) < _amount) {
+            pool.LPToken.approve(address(velodromeRouter), type(uint256).max);
         }
 
         if (token0 != WETH && token1 != WETH) {
@@ -450,7 +476,7 @@ contract OptimismSynthChefV1 is
     function withdraw(
         uint256 _amount,
         address _toToken,
-        address payable _to,
+        address _to,
         uint256 _poolID
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         Pool memory pool = poolsArray[_poolID];
@@ -461,34 +487,16 @@ contract OptimismSynthChefV1 is
             uint256 amount0,
             uint256 amount1
         ) = removeLiquidity(_amount, _poolID);
-        if (_toToken != WETH) {
-            uint256 amountToken = 0;
-            amountToken += token0 != _toToken
-                ? token0 != WETH
-                    ? _swapTokens(amount0, getSwapPath(token0, _toToken))
-                    : swapETH(amount0, _toToken)
-                : amount0;
+        uint256 amountToken = 0;
+        amountToken += token0 != _toToken
+            ? _swapTokens(amount0, _getSwapRoutes(token0, _toToken))
+            : amount0;
 
-            amountToken += token1 != _toToken
-                ? token1 != WETH
-                    ? _swapTokens(amount1, getSwapPath(token1, _toToken))
-                    : swapETH(amount1, _toToken)
-                : amount1;
+        amountToken += token1 != _toToken
+            ? _swapTokens(amount1, _getSwapRoutes(token1, _toToken))
+            : amount1;
 
-            IERC20(_toToken).transfer(_to, amountToken);
-        } else {
-            uint256 amountETH = 0;
-
-            amountETH += token0 != WETH ? swapToETH(amount0, token0) : amount0;
-            amountETH += token1 != WETH ? swapToETH(amount1, token1) : amount1;
-
-            _to.transfer(amountETH);
-        }
-        uint256 rewards = rewardToken.balanceOf(address(this));
-        if (rewards > 0) {
-            rewardToken.transfer(msg.sender, rewards);
-        }
-
+        IERC20(_toToken).transfer(_to, amountToken);
         emit Withdraw(_amount);
     }
 
@@ -514,70 +522,49 @@ contract OptimismSynthChefV1 is
         uint256 _amount,
         address _fromToken,
         address _toToken
-    ) internal view whenNotPaused returns (uint256) {
-        uint256 expectedReturn = _amount;
-        address[] memory path = new address[](2);
-        path[0] = _fromToken;
-        path[1] = _toToken;
-        expectedReturn = IUniswapV2Router02(router).getAmountsOut(
+    ) internal view whenNotPaused returns (uint256 expectedReturn) {
+        (, bool stable) = _getBetterPair(_fromToken, _toToken);
+        route[] memory routes = new route[](1);
+        routes[0] = route({from: _fromToken, to: _toToken, stable: stable});
+        expectedReturn = velodromeRouter.getAmountsOut(
             _amount,
-            path
+            routes
         )[1];
         return expectedReturn;
     }
 
-    function convertTokenToStable(address _tokenAddress, uint256 _amount)
-        internal
+    function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
+        public
         view
         whenNotPaused
         returns (uint256 amountStable)
     {
-        bool flag = false;
-        for (uint256 i = 0; i < stablecoins.length; i++) {
-            if (_tokenAddress == stablecoins[i]) {
-                amountStable += _amount;
-                flag = true;
-                break;
-            }
-        }
-        if (!flag) {
-            if (_tokenAddress != WETH) {
-                uint256 amountWETH = getTokenAmount(
+        if (_tokenAddress == stablecoin)
+            return _amount;
+        return getTokenAmount(
                     _amount,
                     _tokenAddress,
-                    WETH
+                    stablecoin
                 );
-                amountStable += getTokenAmount(
-                    amountWETH,
-                    WETH,
-                    stablecoins[0]
-                );
-            } else {
-                amountStable += getTokenAmount(_amount, WETH, stablecoins[0]);
-            }
-        }
     }
 
-    function convertStableToToken(address _tokenAddress, uint256 _amountStable)
+    function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
         internal
         view
         whenNotPaused
         returns (uint256 amountToken)
     {
-        if (_tokenAddress != WETH) {
-            uint256 amountWETH = getTokenAmount(
-                _amountStable,
-                stablecoins[0],
-                WETH
+        if (_tokenAddress == stablecoin)
+            return _amountStablecoin;
+        return getTokenAmount(
+                _amountStablecoin,
+                stablecoin,
+                _tokenAddress
             );
-            amountToken += getTokenAmount(amountWETH, WETH, _tokenAddress);
-        } else {
-            amountToken += getTokenAmount(_amountStable, stablecoins[0], WETH);
-        }
     }
 
     function getBalanceOnFarms(uint256 _pid)
-        internal
+        public
         view
         whenNotPaused
         returns (uint256 totalAmount)
@@ -588,32 +575,8 @@ contract OptimismSynthChefV1 is
             address token0,
             address token1
         ) = getAmountsTokensInLP(_pid); //convert amount lps to two token amounts
-        totalAmount += convertTokenToStable(token0, amount0); //convert token's price to stablecoins price
-        totalAmount += convertTokenToStable(token1, amount1); //convert token's price to stablecoins price
-    }
-
-    function addStablecoin(address coin)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        require(coin != address(0), "Bad address");
-        stablecoins.push(coin);
-    }
-
-    function cleanStablecoins() external onlyRole(ADMIN_ROLE) whenNotPaused {
-        for (uint256 i = 0; i < stablecoins.length; i++) {
-            delete stablecoins[i];
-        }
-    }
-
-    function getStablecoin(uint256 pid)
-        external
-        view
-        whenNotPaused
-        returns (address stable)
-    {
-        stable = stablecoins[pid];
+        totalAmount += convertTokenToStablecoin(token0, amount0); //convert token's price to stablecoin price
+        totalAmount += convertTokenToStablecoin(token1, amount1); //convert token's price to stablecoin price
     }
 
     function setFee(uint256 _fee, uint256 _feeRate)
