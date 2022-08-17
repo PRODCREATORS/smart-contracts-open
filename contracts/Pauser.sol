@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT ddd
 pragma solidity ^0.8.10;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "./interfaces/IPausable.sol";
 
 
-contract Pauser is AccessControlEnumerable {
+contract Pauser is AccessControl {
     IPausable[] public contracts;
 
     bytes32 public constant ADMIN_ROLE = keccak256("OWNER_ROLE");

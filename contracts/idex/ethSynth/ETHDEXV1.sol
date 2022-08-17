@@ -9,7 +9,7 @@ import "../../Lender.sol";
 import "../../PausableAccessControl.sol";
 import "../../utils/IERC20Extended.sol";
 
-contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
+contract ETHDEXV1 is AccessControlEnumerable, PausableAccessControl, Lender {
     using SafeMath for uint256;
 
     IERC20Extended public opToken; //token which will be paid for synth and will be get after selling synth
@@ -87,7 +87,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
         uint256 _startRate,
         uint8 _pid,
         bool _crosschain
-    ) public onlyRole(ADMIN) whenNotPaused {
+    ) external onlyRole(ADMIN) whenNotPaused {
         require(synths[_pid].isActive == false, "Already added");
         Synth memory newSynth = Synth({
             synth: _synth,
@@ -110,7 +110,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      * - the caller must have `BUYER` role.
      */
     function buy(uint8 _pid, uint256 _amount)
-        public
+        external
         exist(_pid)
         isActive(_pid)
         whenNotPaused
@@ -134,7 +134,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      */
     function sell(uint8 _pid, uint256 _amount)
-        public
+        external
         exist(_pid)
         isActive(_pid) 
         whenNotPaused 
@@ -167,7 +167,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      * - the caller must have admin role.
      */
     function changeRate(uint8 _pid, uint256 _rate)
-        public
+        external
         onlyRole(ADMIN)
         exist(_pid)
         isActive(_pid)
@@ -185,7 +185,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function withdrawOpTokens(uint256 _amount, address to) public onlyRole(ADMIN) whenNotPaused {
+    function withdrawOpTokens(uint256 _amount, address to) external onlyRole(ADMIN) whenNotPaused {
         require(
             opToken.balanceOf(address(this)) >= _amount,
             "Not enough opToken to withdraw"
@@ -201,7 +201,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function changeOpToken(IERC20Extended _opToken) public onlyRole(ADMIN) whenNotPaused {
+    function changeOpToken(IERC20Extended _opToken) external onlyRole(ADMIN) whenNotPaused {
         require(address(_opToken) != address(0), "Invalid address");
         opToken = _opToken;
         opDecimals = _opToken.decimals();
@@ -219,7 +219,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * May emit a {RoleGranted} event.
      */
-    function addAdmin(address _admin) public onlyRole(OWNER) whenNotPaused {
+    function addAdmin(address _admin) external onlyRole(OWNER) whenNotPaused {
         require(!hasRole(ADMIN, _admin), "already admin");
         grantRole(ADMIN, _admin);
     }
@@ -236,14 +236,14 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * May emit a {RoleGranted} event.
      */
-    function removeAdmin(address _admin) public onlyRole(OWNER) whenNotPaused {
+    function removeAdmin(address _admin) external onlyRole(OWNER) whenNotPaused {
         revokeRole(ADMIN, _admin);
     }
 
     /**
      * @dev Returns addresses that control `ADMIN` role
      */
-    function admins() public view returns (address[] memory) {
+    function admins() external view returns (address[] memory) {
         uint256 _adminsLength = getRoleMemberCount(ADMIN);
         require(_adminsLength > 0, "No admins");
         address[] memory _admins = new address[](_adminsLength);
@@ -260,7 +260,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function changeFee(uint256 _fee, uint256 _feeRate) public onlyRole(ADMIN) whenNotPaused {
+    function changeFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN) whenNotPaused {
         fee = _fee;
         feeRate = _feeRate;
     }
@@ -272,7 +272,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function pauseSynth(uint8 _pid) public exist(_pid) whenNotPaused {
+    function pauseSynth(uint8 _pid) external exist(_pid) whenNotPaused {
         synths[_pid].isActive = !synths[_pid].isActive;
     }
 
@@ -284,7 +284,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function setChef(address _chef) public onlyRole(ADMIN) whenNotPaused {
+    function setChef(address _chef) external onlyRole(ADMIN) whenNotPaused {
         chef = _chef;
     }
 
@@ -296,7 +296,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function setFactory(address _factory) public onlyRole(ADMIN) whenNotPaused {
+    function setFactory(address _factory) external onlyRole(ADMIN) whenNotPaused {
         factory = _factory;
     }
 
@@ -319,11 +319,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
         whenNotPaused
         returns (bool)
     {
-        if (getSynthBalance(_pid) < _amount) {
-            return true;
-        } else {
-            return false;
-        }
+        return getSynthBalance(_pid) < _amount;
     }
 
     function checkOpRebalancing(uint256 _amount)
@@ -333,11 +329,7 @@ contract ETHDEXV1 is  AccessControlEnumerable, PausableAccessControl, Lender {
         whenNotPaused
         returns (bool)
     {
-        if (getOpTokenBalance() < _amount) {
-            return true;
-        } else {
-            return false;
-        }
+        return getOpTokenBalance(_pid) < _amount;
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControlEnumerable, AccessControl) returns (bool) {

@@ -2,9 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 import "./Lender.sol";
 import "./PausableAccessControl.sol";
 
@@ -23,17 +21,17 @@ contract Pool is PausableAccessControl {
     event Deposit(uint256 amount);
     event Withdraw(uint256 amount);
 
-    function depositToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) {
+    function depositToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
         token.transferFrom(msg.sender, address(this), amount);
         emit Deposit(amount);
     }
 
-    function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) {
+    function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
         token.transfer(msg.sender, amount);
         emit Withdraw(amount);
     }
 
-    function addDepositer(address _depositer) external onlyRole(ADMIN_ROLE) {
+    function addDepositer(address _depositer) external onlyRole(ADMIN_ROLE) whenNotPaused {
         require(hasRole(keccak256("ADMIN"), _depositer) && hasRole(keccak256("DEPOSITER"), _depositer), "you have role");
         grantRole(DEPOSITER_ROLE, _depositer);
     }
@@ -43,7 +41,7 @@ contract Pool is PausableAccessControl {
         revokeRole(DEPOSITER_ROLE, _depositer);
 	}
     
-    function updateToken(IERC20 _token) external onlyRole(ADMIN_ROLE) {
+    function updateToken(IERC20 _token) external onlyRole(ADMIN_ROLE) whenNotPaused {
         token = _token;
     }
 }
