@@ -8,7 +8,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
 
-contract OptimismSynthV1 is ERC20, Ownable {
+contract EntangleSynth is ERC20, Ownable {
     using PRBMathUD60x18 for uint256;
 
     address public factory;

@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: GPL-2
 pragma solidity >=0.8.9;
 
-import "./utils/IBooster.sol";
-import "../../Lender.sol";
+
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "../../PausableAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./BaseSynthChef.sol";
 
 interface IGauge {
     function deposit(uint amount, uint tokenId) external;
@@ -23,13 +21,13 @@ interface IGauge {
     function balanceOf(address user) external view returns (uint);
 }
 
-struct route {
+interface IVelodromeRouter {
+
+    struct route {
     address from;
     address to;
     bool stable;
-}
-
-interface IVelodromeRouter {
+    }
 
     function addLiquidity(
         address tokenA,
@@ -43,16 +41,6 @@ interface IVelodromeRouter {
         uint deadline
     ) external returns (uint amountA, uint amountB, uint liquidity);
 
-    function addLiquidityETH(
-        address token,
-        bool stable,
-        uint amountTokenDesired,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline
-    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
-
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -63,16 +51,6 @@ interface IVelodromeRouter {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB);
-
-    function removeLiquidityETH(
-        address token,
-        bool stable,
-        uint liquidity,
-        uint amountTokenMin,
-        uint amountETHMin,
-        address to,
-        uint deadline
-    ) external returns (uint amountToken, uint amountETH);
 
     function quoteRemoveLiquidity(
         address tokenA,
@@ -89,15 +67,6 @@ interface IVelodromeRouter {
         uint deadline
     ) external returns (uint[] memory amounts);
 
-    function swapExactETHForTokens(uint amountOutMin, route[] calldata routes, address to, uint deadline)
-    external
-    payable
-    returns (uint[] memory amounts);
-
-    function swapExactTokensForETH(uint amountIn, uint amountOutMin, route[] calldata routes, address to, uint deadline)
-    external
-    returns (uint[] memory amounts);
-
     function getAmountsOut(uint amountIn, route[] memory routes) external view returns (uint[] memory amounts);
 }
 
@@ -109,10 +78,8 @@ interface IPair {
     function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
 }
 
-contract OptimismSynthChefV1 is
-    AccessControlEnumerable,
-    PausableAccessControl,
-    Lender
+contract OptimismSynthChef is
+    BaseSynthChef
 {
     using SafeMath for uint256;
 
@@ -139,9 +106,6 @@ contract OptimismSynthChefV1 is
         bool stable;
     }
 
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-
     constructor(
         IVelodromeRouter _velodromeRouter,
         address _WETH,
@@ -149,8 +113,9 @@ contract OptimismSynthChefV1 is
         IVelodromeFactory _factory,
         uint256 _fee,
         address _treasury,
+        address _DEXWrapper,
         IERC20 _rewardToken
-    ) {
+    ) BaseSynthChef(_DEXWrapper) {
         velodromeRouter = _velodromeRouter;
         factory = _factory;
         rewardToken = _rewardToken;
@@ -158,11 +123,6 @@ contract OptimismSynthChefV1 is
         stablecoin = _stablecoin;
         fee = _fee;
         treasury = _treasury;
-
-        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
-        _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
-        _setRoleAdmin(BORROWER_ROLE, ADMIN_ROLE);
-        _setupRole(OWNER_ROLE, msg.sender);
     }
 
     receive() external payable {}
@@ -173,18 +133,6 @@ contract OptimismSynthChefV1 is
         whenNotPaused
     {
         factory = _factory;
-    }
-
-    function deposit(uint256 _poolID)
-        external
-        payable
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        uint256 amountLPs = _addLiquidity(msg.value, WETH, _poolID);
-        _deposit(amountLPs, _poolID);
-        _compound(_poolID);
-        emit Deposit(amountLPs);
     }
 
     function deposit(
@@ -227,16 +175,16 @@ contract OptimismSynthChefV1 is
     function _getSwapRoutes(address _tokenFrom, address _tokenTo)
         internal
         view
-        returns (route[] memory routes)
+        returns (IVelodromeRouter.route[] memory routes)
     {
         (address lpPair, bool stable) = _getBetterPair(_tokenFrom, _tokenTo);
         if (lpPair != address(0)) {
-            routes = new route[](1);
-            routes[0] = route({from: _tokenFrom, to: _tokenTo, stable: stable});
+            routes = new IVelodromeRouter.route[](1);
+            routes[0] = IVelodromeRouter.route({from: _tokenFrom, to: _tokenTo, stable: stable});
         } else {
-            routes = new route[](2);
-            routes[0] = route({from: _tokenFrom, to: WETH, stable: false});
-            routes[1] = route({from: WETH, to: _tokenTo, stable: false});
+            routes = new IVelodromeRouter.route[](2);
+            routes[0] = IVelodromeRouter.route({from: _tokenFrom, to: WETH, stable: false});
+            routes[1] = IVelodromeRouter.route({from: WETH, to: _tokenTo, stable: false});
         }
     }
 
@@ -256,12 +204,8 @@ contract OptimismSynthChefV1 is
     {
         token0 = address(poolsArray[_poolID].token0);
         token1 = address(poolsArray[_poolID].token1);
-        amount0 = token0 != _tokenFrom
-                ? _swapTokens(_amount / 2, _getSwapRoutes(_tokenFrom, token0))
-                : _amount / 2;
-        amount1 = token1 != _tokenFrom
-            ? _swapTokens(_amount / 2, _getSwapRoutes(_tokenFrom, token1))
-            : _amount / 2;
+        amount0 = token0 != _tokenFrom ? _convertTokens(_tokenFrom, token0, amount0) : _amount / 2;
+        amount1 = token1 != _tokenFrom ? _convertTokens(_tokenFrom, token1, amount1) : _amount / 2;
     }
 
     function _addLiquidity(
@@ -302,81 +246,17 @@ contract OptimismSynthChefV1 is
             );
         }
 
-        if (token0 != WETH && token1 != WETH) {
-            (, , amountLPs) = velodromeRouter.addLiquidity(token0, 
-                token1, 
-                pool.stable,
-                amount0, 
-                amount1,
-                1,
-                1,
-                address(this),
-                block.timestamp
-            );
-        } else if (token0 == WETH) {
-            (, , amountLPs) = velodromeRouter.addLiquidityETH{
-                value: amount0
-            }(token1, pool.stable, amount1, 1, 1, address(this), block.timestamp);
-        } else {
-            (, , amountLPs) = velodromeRouter.addLiquidityETH{
-                value: amount1
-            }(token0, pool.stable, amount0,  1, 1, address(this), block.timestamp);
-        }
-        return amountLPs;
-    }
-
-    function swapETH(uint256 _amount, address _tokenTo)
-        internal
-        returns (uint256)
-    {
-        if (_tokenTo == WETH) {
-            return _amount;
-        }
-        route[] memory routes = new route[](1);
-        routes[0] = route({from: WETH, to: _tokenTo, stable: false});
-        uint256[] memory amounts = velodromeRouter.swapExactETHForTokens{value: _amount}(
-            0,
-            routes,
-            address(this),
-            block.timestamp
-        );
-
-        return amounts[1];
-    }
-
-    function swapToETH(uint256 _amount, address _fromToken)
-        internal
-        returns (uint256)
-    {
-        route[] memory routes = new route[](1);
-        routes[0] = route({from: _fromToken, to: WETH, stable: false});
-        uint256[] memory amounts = velodromeRouter.swapExactTokensForETH(
-            _amount,
+        (, , amountLPs) = velodromeRouter.addLiquidity(token0, 
+            token1, 
+            pool.stable,
+            amount0, 
+            amount1,
             1,
-            routes,
+            1,
             address(this),
             block.timestamp
         );
-        return amounts[1];
-    }
-
-    function _swapTokens(uint256 _amount, route[] memory routes)
-        internal
-        returns (uint256)
-    {
-        if (IERC20(routes[0].from).allowance(address(this), address(velodromeRouter)) == 0) {
-            IERC20(routes[0].from).approve(address(velodromeRouter), type(uint256).max);
-        }
-
-        uint256[] memory amounts = velodromeRouter.swapExactTokensForTokens(
-            _amount,
-            0,
-            routes,
-            address(this),
-            block.timestamp
-        );
-
-        return amounts[amounts.length - 1];
+        return amountLPs;
     }
 
     function _harvest(uint256 _poolID) internal {
@@ -431,41 +311,18 @@ contract OptimismSynthChefV1 is
         if (pool.LPToken.allowance(address(this), address(velodromeRouter)) < _amount) {
             pool.LPToken.approve(address(velodromeRouter), type(uint256).max);
         }
-
-        if (token0 != WETH && token1 != WETH) {
-            uint256[2] memory t;
-            t[0] = 0;
-            t[1] = 0;
-            (amount0, amount1) = velodromeRouter.removeLiquidity(token0, 
-                token1, 
-                pool.stable,
-                _amount,
-                amount0, 
-                amount1,
-                address(this),
-                block.timestamp
-            );
-        } else if (token0 == WETH) {
-            (amount1, amount0) = velodromeRouter.removeLiquidityETH(
-                token1, 
-                pool.stable,
-                _amount,
-                1, 
-                1,
-                address(this),
-                block.timestamp
-            );
-        } else {
-            (amount0, amount1) = velodromeRouter.removeLiquidityETH(
-                token0, 
-                pool.stable,
-                _amount,
-                1, 
-                1,
-                address(this),
-                block.timestamp
-            );
-        }
+        uint256[2] memory t;
+        t[0] = 0;
+        t[1] = 0;
+        (amount0, amount1) = velodromeRouter.removeLiquidity(token0, 
+            token1, 
+            pool.stable,
+            _amount,
+            amount0, 
+            amount1,
+            address(this),
+            block.timestamp
+        );
     }
 
     function withdraw(
@@ -483,13 +340,9 @@ contract OptimismSynthChefV1 is
             uint256 amount1
         ) = removeLiquidity(_amount, _poolID);
         uint256 amountToken = 0;
-        amountToken += token0 != _toToken
-            ? _swapTokens(amount0, _getSwapRoutes(token0, _toToken))
-            : amount0;
+        amountToken += token0 != _toToken ? _convertTokens(token0, _toToken, amount0) : amount0;
 
-        amountToken += token1 != _toToken
-            ? _swapTokens(amount1, _getSwapRoutes(token1, _toToken))
-            : amount1;
+        amountToken += token1 != _toToken ? _convertTokens(token1, _toToken, amount1) : amount1;
 
         IERC20(_toToken).transfer(_to, amountToken);
         emit Withdraw(_amount);
@@ -513,21 +366,6 @@ contract OptimismSynthChefV1 is
         (amount0, amount1) = velodromeRouter.quoteRemoveLiquidity(address(token0), address(token1), pool.stable, amountLP);
     }
 
-    function getTokenAmount(
-        uint256 _amount,
-        address _fromToken,
-        address _toToken
-    ) internal view returns (uint256 expectedReturn) {
-        (, bool stable) = _getBetterPair(_fromToken, _toToken);
-        route[] memory routes = new route[](1);
-        routes[0] = route({from: _fromToken, to: _toToken, stable: stable});
-        expectedReturn = velodromeRouter.getAmountsOut(
-            _amount,
-            routes
-        )[1];
-        return expectedReturn;
-    }
-
     function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
         public
         view
@@ -536,11 +374,7 @@ contract OptimismSynthChefV1 is
     {
         if (_tokenAddress == stablecoin)
             return _amount;
-        return getTokenAmount(
-                    _amount,
-                    _tokenAddress,
-                    stablecoin
-                );
+        return _previewConvertTokens(_tokenAddress, stablecoin, _amount);
     }
 
     function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
@@ -550,11 +384,7 @@ contract OptimismSynthChefV1 is
     {
         if (_tokenAddress == stablecoin)
             return _amountStablecoin;
-        return getTokenAmount(
-                _amountStablecoin,
-                stablecoin,
-                _tokenAddress
-            );
+        return _previewConvertTokens(stablecoin, _tokenAddress, _amountStablecoin);
     }
 
     function getBalanceOnFarms(uint256 _pid)
@@ -616,32 +446,5 @@ contract OptimismSynthChefV1 is
                 stable
             )
         );
-    }
-
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override(AccessControlEnumerable, AccessControl)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
-
-    function _grantRole(bytes32 role, address account)
-        internal
-        virtual
-        override(AccessControlEnumerable, AccessControl)
-    {
-        return super._grantRole(role, account);
-    }
-
-    function _revokeRole(bytes32 role, address account)
-        internal
-        virtual
-        override(AccessControlEnumerable, AccessControl)
-    {
-        return super._revokeRole(role, account);
     }
 }
