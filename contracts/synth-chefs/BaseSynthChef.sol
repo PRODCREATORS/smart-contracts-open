@@ -5,7 +5,7 @@ import "../Lender.sol";
 import "../PausableAccessControl.sol";
 import "../interfaces/IEntangleDEXWrapper.sol";
 
-contract BaseSynthChef is PausableAccessControl, Lender {
+abstract contract BaseSynthChef is PausableAccessControl, Lender {
     IEntangleDEXWrapper public DEXWrapper;
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
@@ -30,4 +30,17 @@ contract BaseSynthChef is PausableAccessControl, Lender {
     function _previewConvertTokens(address from, address to, uint256 amount) internal view returns(uint256) {
         return DEXWrapper.previewConvert(from, to, amount);
     }
+
+    function deposit(
+        uint256 _amount,
+        address _token,
+        uint256 _poolID
+    ) public virtual;
+
+    function withdraw(
+        uint256 _amount,
+        address _toToken,
+        address _to,
+        uint256 _poolID
+    ) public virtual;
 }

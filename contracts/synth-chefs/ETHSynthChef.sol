@@ -119,7 +119,7 @@ contract ETHSynthChef is BaseSynthChef {
         uint256 _amount,
         address _token,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = addLiquidity(_amount, _token, _poolID);
         _deposit(amountLPs, _poolID);
@@ -259,7 +259,7 @@ contract ETHSynthChef is BaseSynthChef {
         address _toToken,
         address _to,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
         ConvexReward(poolsArray[_poolID].convexreward).withdrawAndUnwrap(
             _amount,
             true
