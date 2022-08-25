@@ -21,72 +21,13 @@ interface IGauge {
     function balanceOf(address user) external view returns (uint);
 }
 
-interface IVelodromeRouter {
-
-    struct route {
-    address from;
-    address to;
-    bool stable;
-    }
-
-    function addLiquidity(
-        address tokenA,
-        address tokenB,
-        bool stable,
-        uint amountADesired,
-        uint amountBDesired,
-        uint amountAMin,
-        uint amountBMin,
-        address to,
-        uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidity);
-
-    function removeLiquidity(
-        address tokenA,
-        address tokenB,
-        bool stable,
-        uint liquidity,
-        uint amountAMin,
-        uint amountBMin,
-        address to,
-        uint deadline
-    ) external returns (uint amountA, uint amountB);
-
-    function quoteRemoveLiquidity(
-        address tokenA,
-        address tokenB,
-        bool stable,
-        uint liquidity
-    ) external view returns (uint amountA, uint amountB);
-
-    function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        route[] calldata routes,
-        address to,
-        uint deadline
-    ) external returns (uint[] memory amounts);
-
-    function getAmountsOut(uint amountIn, route[] memory routes) external view returns (uint[] memory amounts);
-}
-
-interface IVelodromeFactory {
-    function getPair(address tokenA, address token, bool stable) external view returns (address);
-}
-
-interface IPair {
-    function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
-}
-
 contract OptimismSynthChef is
     BaseSynthChef
 {
     using SafeMath for uint256;
 
-    IVelodromeFactory public  factory;
     IERC20 public rewardToken;
     address public WETH;
-    IVelodromeRouter public velodromeRouter;
 
     uint256 public fee;
     uint256 public feeRate = 1e4;
@@ -107,10 +48,8 @@ contract OptimismSynthChef is
     }
 
     constructor(
-        IVelodromeRouter _velodromeRouter,
         address _WETH,
         address _stablecoin,
-        IVelodromeFactory _factory,
         uint256 _fee,
         address _treasury,
         address _DEXWrapper,
@@ -126,14 +65,6 @@ contract OptimismSynthChef is
     }
 
     receive() external payable {}
-
-    function setFactory(IVelodromeFactory _factory)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        factory = _factory;
-    }
 
     function deposit(
         uint256 _amount,

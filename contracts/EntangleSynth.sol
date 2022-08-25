@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
+import "./interfaces/IEntangleDEXWrapper.sol";
 
 contract EntangleSynth is ERC20, Ownable {
     using PRBMathUD60x18 for uint256;
@@ -27,6 +28,8 @@ contract EntangleSynth is ERC20, Ownable {
     uint256 private totalLPSupply; // multiplied by 10**6
     uint256 private totalSynthSupply;
 
+    IEntangleDEXWrapper public DEXWrapper;
+
     /**
      * @dev Sets the values for {factory}.
      */
@@ -39,7 +42,8 @@ contract EntangleSynth is ERC20, Ownable {
         uint256 _totalLPSupply,
         IUniswapV2Pair _pair,
         IUniswapV2Router01 _router,
-        IERC20 _opToken
+        IERC20 _opToken,
+        IEntangleDEXWrapper _DEXWrapper
     ) ERC20("ETHSynth", "SYNTH") {
         factory = msg.sender;
         token1 = _token1;
@@ -51,6 +55,7 @@ contract EntangleSynth is ERC20, Ownable {
         pair = _pair;
         router = _router;
         opToken = _opToken;
+        DEXWrapper = _DEXWrapper;
     }
 
     /**
