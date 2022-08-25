@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: GPL-2
 pragma solidity >=0.8.9;
 
-
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./BaseSynthChef.sol";
 
@@ -21,13 +15,43 @@ interface IGauge {
     function balanceOf(address user) external view returns (uint);
 }
 
+interface IVelodromeRouter {
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+
+    function quoteRemoveLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint liquidity
+    ) external view returns (uint amountA, uint amountB);
+}
+
 contract OptimismSynthChef is
     BaseSynthChef
 {
-    using SafeMath for uint256;
-
     IERC20 public rewardToken;
-    address public WETH;
+    IVelodromeRouter public velodromeRouter;
 
     uint256 public fee;
     uint256 public feeRate = 1e4;
@@ -48,7 +72,7 @@ contract OptimismSynthChef is
     }
 
     constructor(
-        address _WETH,
+        IVelodromeRouter _velodromeRouter,
         address _stablecoin,
         uint256 _fee,
         address _treasury,
@@ -56,9 +80,7 @@ contract OptimismSynthChef is
         IERC20 _rewardToken
     ) BaseSynthChef(_DEXWrapper) {
         velodromeRouter = _velodromeRouter;
-        factory = _factory;
         rewardToken = _rewardToken;
-        WETH = _WETH;
         stablecoin = _stablecoin;
         fee = _fee;
         treasury = _treasury;
@@ -177,7 +199,7 @@ contract OptimismSynthChef is
     function _compound(uint256 _pid) internal {
         uint256 amountToken = rewardToken.balanceOf(address(this));
         if (amountToken > 0) {
-            uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
+            uint256 amountTokenFee = amountToken * fee / feeRate;
             uint256 amountwithfee = amountToken - amountTokenFee;
             uint256 amountLPs = _addLiquidity(
                 amountwithfee,
