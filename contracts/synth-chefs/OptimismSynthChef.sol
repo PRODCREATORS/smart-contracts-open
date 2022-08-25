@@ -88,37 +88,6 @@ contract OptimismSynthChef is
         pool.gauge.deposit(_amount, 0);
     }
 
-    function _getBetterPair(address _tokenFrom, address _tokenTo) internal view returns(address pair, bool stable) {
-        address stableLpPair = factory.getPair(_tokenFrom, _tokenTo, true);
-        address notStableLpPair = factory.getPair(_tokenFrom, _tokenTo, false);
-        if (stableLpPair == address(0)) 
-            return (notStableLpPair, false);
-        if (notStableLpPair == address(0))
-            return (stableLpPair, true);
-        (uint256 amount0Stable , ,) = IPair(stableLpPair).getReserves();
-        (uint256 amount0NotStable , ,) = IPair(notStableLpPair).getReserves();
-        if (amount0Stable > amount0NotStable)
-            return (stableLpPair, true);
-        else
-            return (notStableLpPair, false);
-    }
-
-    function _getSwapRoutes(address _tokenFrom, address _tokenTo)
-        internal
-        view
-        returns (IVelodromeRouter.route[] memory routes)
-    {
-        (address lpPair, bool stable) = _getBetterPair(_tokenFrom, _tokenTo);
-        if (lpPair != address(0)) {
-            routes = new IVelodromeRouter.route[](1);
-            routes[0] = IVelodromeRouter.route({from: _tokenFrom, to: _tokenTo, stable: stable});
-        } else {
-            routes = new IVelodromeRouter.route[](2);
-            routes[0] = IVelodromeRouter.route({from: _tokenFrom, to: WETH, stable: false});
-            routes[1] = IVelodromeRouter.route({from: WETH, to: _tokenTo, stable: false});
-        }
-    }
-
     function convertTokensToProvideLiquidity(
         uint256 _amount,
         address _tokenFrom,
