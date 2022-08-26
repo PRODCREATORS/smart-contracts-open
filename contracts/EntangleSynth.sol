@@ -59,32 +59,25 @@ contract EntangleSynth is ERC20, Ownable {
     }
 
     /**
-     * @dev Returns the amounts of token1 and token2 which are righnt now on the farm behind this Synth
+     * @dev Returns the amounts of token1 and token2 which are right now on the farm behind this Synth
      */
     function getAmounts()
         public
         view
         returns (uint256 token1Amount, uint256 token2Amount)
     {
-        (uint256 token1Reserves, uint256 token2Reserves, ) = pair.getReserves();
         token1Amount = uint256(
-            (token1AmountIn * token2AmountIn * token1Reserves) / token2Reserves
+            (token1AmountIn * DEXWrapper.previewConvert(address(token2), address(token1), token2AmountIn))
         ).sqrt();
         token2Amount = uint256(
-            (token1AmountIn * token2AmountIn * token2Reserves) / token1Reserves
+            (token2AmountIn * DEXWrapper.previewConvert(address(token1), address(token2), token1AmountIn))
         ).sqrt();
     }
 
     function getPrice(uint256 amount) public view returns (uint256 price) {
-        (uint256 token1Amount, uint256 token2Amount, ) = pair.getReserves();
-        address[] memory path = new address[](2);
-        path[0] = address(token1);
-        path[1] = address(opToken);
-        price = router.getAmountsOut(token1Amount, path)[0];
-        path = new address[](2);
-        path[0] = address(token2);
-        path[1] = address(opToken);
-        price += router.getAmountsOut(token2Amount, path)[0];
+        (uint256 token1Amount, uint256 token2Amount) = getAmounts();
+        price = DEXWrapper.previewConvert(address(token1), address(opToken), token1Amount);
+        price += DEXWrapper.previewConvert(address(token2), address(opToken), token2Amount);
         price *= totalLPSupply * amount;
         price /= totalSynthSupply * 10**6 * 10**decimals();
     }
