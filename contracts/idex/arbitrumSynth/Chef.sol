@@ -1,39 +1,17 @@
 // SPDX-License-Identifier: GPL-2
 pragma solidity >=0.8.9;
 
+
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./BaseSynthChef.sol";
 
-interface Curve {
-    function calc_token_amount(uint256[2] memory, bool is_deposit)
-        external
-        view
-        returns (uint256);
-
-    function add_liquidity(
-        uint256[2] memory,
-        uint256 _min_mint_amount,
-        bool is_deposit
-    ) external returns (uint256);
-
-    function remove_liquidity(
-        uint256 amount,
-        uint256[2] memory _min_amounts,
-        bool _use_underlying
-    ) external returns (uint256[2] memory);
-
-    function calc_withdraw_one_coin(uint256 _token_amount, int128 i)
-        external
-        view
-        returns (uint256);
-}
-
-interface Stargate {
+interface IStargate {
     function deposit(
         uint256 _pid,
         uint256 _amount
@@ -44,25 +22,49 @@ interface Stargate {
     function withdraw(uint256 _pid, uint256 _amount) external;
 }
 
-interface StargateReward {
-    function withdrawAndUnwrap(uint256 amount, bool claim) external returns (bool);
+interface IStargateRouter {
+    function addLiquidity(uint _poolId, uint256 _amountLD, address _to) external;
 
-    function lpBalances(address account) external view returns (uint256);
+    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns(uint256 amountSD);
 }
 
-contract Chef is AccessControlEnumerable {
+interface IStargatePool {
+    function balanceOf(address _user) external view returns(uint256);
     
+}
+interface IGauge {
+    function deposit(uint amount, uint tokenId) external;
+
+    function getReward(address account, address[] memory tokens) external;
+
+    function withdraw(uint amount) external;
+
+    function balanceOf(address user) external view returns (uint);
+}
+
+
+interface IVelodromeFactory {
+    function getPair(address tokenA, address token, bool stable) external view returns (address);
+}
+
+interface IPair {
+    function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
+}
+
+contract OptimismSynthChef is
+    BaseSynthChef
+{
     using SafeMath for uint256;
 
-    address public router;
-    address public factory;
-    address public rewardToken;
+    IVelodromeFactory public  factory;
+    IERC20 public rewardToken;
     address public WETH;
-    address public chef;
+    IStargateRouter public StargateRouter;
+
     uint256 public fee;
     uint256 public feeRate = 1e4;
     address public treasury;
-    address[] private stablecoins;
+    address private stablecoin;
     Pool[] public poolsArray;
 
     event Deposit(uint256 amount);
@@ -70,533 +72,282 @@ contract Chef is AccessControlEnumerable {
     event Compound(uint256 amountStable);
 
     struct Pool {
-        address lp;
+        IERC20 LPToken;
+        IStargate stargate;
+        IStargatePool stargatePool;
+        IERC20 token;
         uint256 stargateID;
-        address token0;
-        address token1;
-        address curvePool;
-        address stargateReward;
-        address wtoken0;
-        address wtoken1;
+        uint24 feeUniswapPool;
+        bool stable;
     }
 
-    bytes32 public constant OWNER = keccak256("OWNER");
-    bytes32 public constant ADMIN = keccak256("ADMIN");
-
     constructor(
-        address _router,
-        address _factory,
-        address _chef,
+        IStargateRouter _stargateRouter,
+        address _WETH,
+        address _stablecoin,
+        IVelodromeFactory _factory,
         uint256 _fee,
         address _treasury,
-        address _rewardToken
-    ) {
-        chef = _chef;
-        router = _router;
+        address _DEXWrapper,
+        IERC20 _rewardToken
+    ) BaseSynthChef(_DEXWrapper) {
+        StargateRouter = _stargateRouter;
         factory = _factory;
         rewardToken = _rewardToken;
-        WETH = IUniswapV2Router02(router).WETH();
+        WETH = _WETH;
+        stablecoin = _stablecoin;
         fee = _fee;
         treasury = _treasury;
-
-        _setRoleAdmin(ADMIN, OWNER);
-        _setupRole(OWNER, msg.sender);
     }
 
     receive() external payable {}
 
-    function setFactory(address _factory) external onlyRole(ADMIN) {
+    function setFactory(IVelodromeFactory _factory)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         factory = _factory;
-    }
-
-    function setRouter(address _router) external onlyRole(ADMIN) {
-        router = _router;
-    }
-
-    function deposit(uint256 _pid) external payable onlyRole(ADMIN) {
-        uint256 amountLPs = addLiquidity(msg.value, WETH, _pid);
-        _deposit(amountLPs, _pid);
-        _compound(_pid);
-        emit Deposit(amountLPs);
     }
 
     function deposit(
         uint256 _amount,
         address _token,
         uint256 _poolID
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-        uint256 amountLPs = addLiquidity(_amount, _token, _poolID);
+        uint256 amountLPs = _addLiquidity(_amount, _token, _poolID);
         _deposit(amountLPs, _poolID);
         _compound(_poolID);
         emit Deposit(amountLPs);
     }
 
     function _deposit(uint256 _amount, uint256 _poolID) internal {
+        Pool memory pool = poolsArray[_poolID];
         if (
-            IERC20(poolsArray[_poolID].lp).allowance(address(this), chef) == 0
+            pool.LPToken.allowance(address(this), address( pool.stargate)) < _amount
         ) {
-            IERC20(poolsArray[_poolID].lp).approve(chef, type(uint256).max);
+            pool.LPToken.approve(address(pool.stargate), type(uint256).max);
         }
-        Stargate(chef).deposit(poolsArray[_poolID].stargateID, _amount);
+        pool.stargate.deposit(pool.stargateID, _amount);
     }
 
-    function getSwapPath(address _tokenFrom, address _tokenTo)
-        internal
-        view
-        returns (address[] memory path)
-    {
-        address lpPair = IUniswapV2Factory(factory).getPair(
-            _tokenFrom,
-            _tokenTo
-        );
-
-        if (lpPair != address(0)) {
-            path = new address[](2);
-            path[0] = _tokenFrom;
-            path[1] = _tokenTo;
-        } else {
-            path = new address[](3);
-            path[0] = _tokenFrom;
-            path[1] = WETH;
-            path[2] = _tokenTo;
-        }
-
-        return path;
-    }
-
-    function convertTokens(
+    function convertTokensToProvideLiquidity(
         uint256 _amount,
         address _tokenFrom,
         uint256 _poolID
     )
         public
+        whenNotPaused
         returns (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
+            address token,
+            uint256 amount
         )
     {
-        token0 = poolsArray[_poolID].token0;
-        token1 = poolsArray[_poolID].token1;
-        if (_tokenFrom == WETH) {
-            amount0 = swapETH(_amount / 2, token0);
-            amount1 = swapETH(_amount / 2, token1);
-        } else
-            amount0 = token0 != _tokenFrom
-                ? swapTokens(_amount / 2, getSwapPath(_tokenFrom, token0))
-                : _amount / 2;
-        amount1 = token1 != _tokenFrom
-            ? swapTokens(_amount / 2, getSwapPath(_tokenFrom, token1))
-            : _amount / 2;
+        Pool memory pool = poolsArray[_poolID];
+        token = address(poolsArray[_poolID].token);
+        amount = token != _tokenFrom ? _convertTokens(_tokenFrom, token, amount, pool.feeUniswapPool) : _amount;
     }
 
-    function addLiquidity(
+    function _addLiquidity(
         uint256 _amount,
         address _tokenFrom,
         uint256 _poolID
     ) internal returns (uint256) {
         uint256 amountLPs;
         (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
-        ) = convertTokens(_amount, _tokenFrom, _poolID);
-        address lpPair = poolsArray[_poolID].lp;
+            address token,
+            uint256 amount
+        ) = convertTokensToProvideLiquidity(_amount, _tokenFrom, _poolID);
+        Pool memory pool = poolsArray[_poolID];
 
         if (
-            IERC20(token0).allowance(
+            IERC20(token).allowance(
                 address(this),
-                poolsArray[_poolID].curvePool
-            ) == 0
+                address(StargateRouter)
+            ) < amount
         ) {
-            IERC20(token0).approve(
-                poolsArray[_poolID].curvePool,
+            IERC20(token).approve(
+                address(StargateRouter),
                 type(uint256).max
             );
         }
-
-        if (
-            IERC20(token1).allowance(
-                address(this),
-                poolsArray[_poolID].curvePool
-            ) == 0
-        ) {
-            IERC20(token1).approve(
-                poolsArray[_poolID].curvePool,
-                type(uint256).max
+        uint256 amountLiquidity = pool.stargatePool.balanceOf(address(this));
+           StargateRouter.addLiquidity(
+                _poolID,
+                _amount,
+                address(this)
             );
-        }
-
-        if (token0 != WETH && token1 != WETH) {
-            amountLPs = Curve(poolsArray[_poolID].curvePool).add_liquidity(
-                [amount0, amount1],
-                0,
-                true
-            );
-        } else if (token0 == WETH) {
-            (, , amountLPs) = IUniswapV2Router02(router).addLiquidityETH{
-                value: amount0
-            }(token1, amount1, 1, 1, address(this), block.timestamp);
-        } else {
-            (, , amountLPs) = IUniswapV2Router02(router).addLiquidityETH{
-                value: amount1
-            }(token0, amount0, 1, 1, address(this), block.timestamp);
-        }
-
-        if (IERC20(lpPair).allowance(address(this), chef) < amountLPs) {
-            IERC20(lpPair).approve(chef, type(uint256).max);
-        }
+        amountLPs = pool.stargatePool.balanceOf(address(this)) - amountLiquidity;
         return amountLPs;
     }
 
-    function swapETH(uint256 _amount, address _tokenTo)
-        internal
-        returns (uint256)
+    function _harvest(uint256 _poolID) internal {
+        _deposit(_poolID, 0);
+    }
+
+    function compound(uint256 _pid)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
     {
-        if (_tokenTo == IUniswapV2Router02(router).WETH()) {
-            return _amount;
-        }
-        address[] memory path = new address[](2);
-        path[0] = IUniswapV2Router02(router).WETH();
-        path[1] = _tokenTo;
-        uint256[] memory amountLPs = IUniswapV2Router02(router)
-            .swapExactETHForTokens{value: _amount}(
-            0,
-            path,
-            address(this),
-            block.timestamp
-        );
-
-        return amountLPs[1];
-    }
-
-    function swapToETH(uint256 _amount, address _fromToken)
-        internal
-        returns (uint256)
-    {
-        address[] memory path = new address[](2);
-        path[0] = _fromToken;
-        path[1] = IUniswapV2Router02(router).WETH();
-        uint256[] memory amounts = IUniswapV2Router02(router)
-            .swapExactTokensForETH(
-                _amount,
-                1,
-                path,
-                address(this),
-                block.timestamp
-            );
-        return amounts[1];
-    }
-
-    function swapTokens(uint256 _amount, address[] memory path)
-        internal
-        returns (uint256)
-    {
-        if (IERC20(path[0]).allowance(address(this), router) == 0) {
-            IERC20(path[0]).approve(router, type(uint256).max);
-        }
-
-        uint256[] memory amountLPs = IUniswapV2Router02(router)
-            .swapExactTokensForTokens(
-                _amount,
-                0,
-                path,
-                address(this),
-                block.timestamp
-            );
-
-        return amountLPs[amountLPs.length - 1];
-    }
-
-    function harvest(uint256 _pid) internal {
-        _deposit(_pid, 0);
-    }
-
-    function compound(uint256 _pid) external onlyRole(ADMIN) {
-        harvest(_pid);
+        _harvest(_pid);
         _compound(_pid);
     }
 
     function _compound(uint256 _pid) internal {
-        uint256 amountToken = IERC20(rewardToken).balanceOf(address(this));
+        uint256 amountToken = rewardToken.balanceOf(address(this));
         if (amountToken > 0) {
             uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
             uint256 amountwithfee = amountToken - amountTokenFee;
-            uint256 amountLPs = addLiquidity(amountwithfee, rewardToken, _pid);
+            uint256 amountLPs = _addLiquidity(
+                amountwithfee,
+                address(rewardToken),
+                _pid
+            );
             _deposit(amountLPs, _pid);
             emit Compound(getBalanceOnFarms(_pid));
             if (amountTokenFee > 0) {
-                IERC20(rewardToken).transfer(treasury, amountTokenFee);
+                rewardToken.transfer(treasury, amountTokenFee);
             }
         }
     }
 
     function removeLiquidity(
         uint256 _amount,
-        uint256 _poolID /// убрал uint256 _pid,
+        uint256 _poolID
     )
         internal
         returns (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
+            address token,
+            uint256 amount
         )
     {
-        address lpPair = poolsArray[_poolID].lp;
-        token0 = poolsArray[_poolID].token0;
-        token1 = poolsArray[_poolID].token1;
+        Pool memory pool = poolsArray[_poolID];
+        token = address(pool.token);
 
-        if (IERC20(lpPair).allowance(address(this), router) < _amount) {
-            IERC20(lpPair).approve(router, type(uint256).max);
+        if (pool.LPToken.allowance(address(this), address(StargateRouter)) < _amount) {
+            pool.LPToken.approve(address(StargateRouter), type(uint256).max);
         }
+        (amount) = StargateRouter.instantRedeemLocal(uint16(pool.stargateID),
+         _amount, 
+         address(this)
 
-        if (token0 != WETH && token1 != WETH) {
-            uint256[2] memory t;
-            t[0] = 0;
-            t[1] = 0;
-            uint256[2] memory amounts = Curve(poolsArray[_poolID].curvePool)
-                .remove_liquidity(_amount, t, true);
-            amount0 = amounts[0];
-            amount1 = amounts[1];
-        } else if (token0 == WETH) {
-            (amount1, amount0) = IUniswapV2Router02(router).removeLiquidityETH(
-                token1,
-                _amount,
-                1,
-                1,
-                address(this),
-                block.timestamp
-            );
-        } else {
-            (amount0, amount1) = IUniswapV2Router02(router).removeLiquidityETH(
-                token0,
-                _amount,
-                1,
-                1,
-                address(this),
-                block.timestamp
-            );
-        }
+        );
     }
 
     function withdraw(
         uint256 _amount,
         address _toToken,
-        address payable _to,
+        address _to,
         uint256 _poolID
-    ) external onlyRole(ADMIN) {
-        Stargate(poolsArray[_poolID].stargateReward).withdraw(_poolID,_amount);
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        Pool memory pool = poolsArray[_poolID];
+        pool.stargate.withdraw(pool.stargateID, _amount);
         (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
+            address token,
+            uint256 amount
         ) = removeLiquidity(_amount, _poolID);
-        if (_toToken != WETH) {
-            uint256 amountToken = 0;
-            amountToken += token0 != _toToken
-                ? token0 != WETH
-                    ? swapTokens(amount0, getSwapPath(token0, _toToken))
-                    : swapETH(amount0, _toToken)
-                : amount0;
 
-            amountToken += token1 != _toToken
-                ? token1 != WETH
-                    ? swapTokens(amount1, getSwapPath(token1, _toToken))
-                    : swapETH(amount1, _toToken)
-                : amount1;
+        uint256 amountToken = 0;
+        amountToken += token != _toToken ? _convertTokens(token, _toToken, amount, pool.feeUniswapPool) : amount;
 
-            IERC20(_toToken).transfer(_to, amountToken);
-        } else {
-            uint256 amountETH = 0;
-
-            amountETH += token0 != WETH ? swapToETH(amount0, token0) : amount0;
-            amountETH += token1 != WETH ? swapToETH(amount1, token1) : amount1;
-
-            _to.transfer(amountETH);
-        }
-        uint256 rewards = IERC20(rewardToken).balanceOf(address(this));
-        if (rewards > 0) {
-            IERC20(rewardToken).transfer(msg.sender, rewards);
-        }
-
+        IERC20(_toToken).transfer(_to, amountToken);
         emit Withdraw(_amount);
     }
 
     function getAmountsTokensInLP(uint256 _pid)
         public
         view
+        whenNotPaused
         returns (
-            uint256 amount0,
-            uint256 amount1,
-            address token0,
-            address token1
+            uint256 amount,
+            address token
         )
     {
-        token0 = poolsArray[_pid].token0;
-        token1 = poolsArray[_pid].token1;
-        uint256 amountLP = StargateReward(poolsArray[_pid].stargateReward)
-            .lpBalances(address(this));
-        amount0 = Curve(poolsArray[_pid].curvePool).calc_withdraw_one_coin(
-            amountLP,
-            int128(0)
-        );
-        amount1 = Curve(poolsArray[_pid].curvePool).calc_withdraw_one_coin(
-            amountLP,
-            int128(1)
-        );
+        Pool memory pool = poolsArray[_pid];
+        token = address(pool.token);
+        amount = pool.stargatePool.balanceOf(address(this));
     }
 
-    function getTokenAmount(
-        uint256 _amount,
-        address _fromToken,
-        address _toToken
-    ) internal view returns (uint256) {
-        uint256 expectedReturn = _amount;
-        address[] memory path = new address[](2);
-        path[0] = _fromToken;
-        path[1] = _toToken;
-        expectedReturn = IUniswapV2Router02(router).getAmountsOut(
-            _amount,
-            path
-        )[1];
-        return expectedReturn;
-    }
-
-    function convertTokenToStable(address _tokenAddress, uint256 _amount)
-        internal
-        view
+    function convertTokenToStablecoin(address _tokenAddress, uint256 _amount, uint24 _fee)
+        public
+        whenNotPaused
         returns (uint256 amountStable)
     {
-        bool flag = false;
-        for (uint256 i = 0; i < stablecoins.length; i++) {
-            if (_tokenAddress == stablecoins[i]) {
-                amountStable += _amount;
-                flag = true;
-                break;
-            }
-        }
-        if (!flag) {
-            if (_tokenAddress != WETH) {
-                uint256 amountWETH = getTokenAmount(
-                    _amount,
-                    _tokenAddress,
-                    WETH
-                );
-                amountStable += getTokenAmount(
-                    amountWETH,
-                    WETH,
-                    stablecoins[0]
-                );
-            } else {
-                amountStable += getTokenAmount(_amount, WETH, stablecoins[0]);
-            }
-        }
+        if (_tokenAddress == stablecoin)
+            return _amount;
+        return _previewConvertTokens(_tokenAddress, stablecoin, _amount, _fee);
     }
 
-    function convertStableToToken(address _tokenAddress, uint256 _amountStable)
+    function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin, uint24 _fee)
         internal
-        view
         returns (uint256 amountToken)
     {
-        if (_tokenAddress != WETH) {
-            uint256 amountWETH = getTokenAmount(
-                _amountStable,
-                stablecoins[0],
-                WETH
-            );
-            amountToken += getTokenAmount(amountWETH, WETH, _tokenAddress);
-        } else {
-            amountToken += getTokenAmount(_amountStable, stablecoins[0], WETH);
-        }
+        if (_tokenAddress == stablecoin)
+            return _amountStablecoin;
+        return _previewConvertTokens(stablecoin, _tokenAddress, _amountStablecoin, _fee);
     }
 
     function getBalanceOnFarms(uint256 _pid)
-        internal
-        view
+        public
+        whenNotPaused
         returns (uint256 totalAmount)
     {
         (
-            uint256 amount0,
-            uint256 amount1,
-            address token0,
-            address token1
+            uint256 amount,
+            address token
         ) = getAmountsTokensInLP(_pid); //convert amount lps to two token amounts
-        totalAmount += convertTokenToStable(token0, amount0); //convert token's price to stablecoins price
-        totalAmount += convertTokenToStable(token1, amount1); //convert token's price to stablecoins price
+        Pool memory pool = poolsArray[_pid];
+        totalAmount += convertTokenToStablecoin(token, amount, pool.feeUniswapPool); //convert token's price to stablecoin price
     }
 
-    function addStablecoin(address coin) external onlyRole(ADMIN) {
-        require(coin != address(0), "Bad address");
-        stablecoins.push(coin);
-    }
-
-    function cleanStablecoins() external onlyRole(ADMIN) {
-        for (uint256 i = 0; i < stablecoins.length; i++) {
-            delete stablecoins[i];
-        }
-    }
-
-    function getStablecoin(uint256 pid) external view returns (address stable) {
-        stable = stablecoins[pid];
-    }
-
-    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN) {
+    function setFee(uint256 _fee, uint256 _feeRate)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         fee = _fee;
         feeRate = _feeRate;
     }
 
-    function setRewardToken(address _newToken) external onlyRole(ADMIN) {
-        require(_newToken != address(0), "Invalid address");
+    function setRewardToken(IERC20 _newToken)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
+        require(address(_newToken) != address(0), "Invalid address");
         rewardToken = _newToken;
     }
 
-    function setTreasury(address _treasury) external onlyRole(ADMIN) {
+    function setTreasury(address _treasury)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }
 
     function addPool(
-        address _pool,
-        uint256 _stargateID,
-        address _token0,
-        address _token1,
-        address _curvePool,
-        address _stargatereward,
-        address _wtoken0,
-        address _wtoken1
-    ) external onlyRole(ADMIN) {
+        IERC20 LPToken,
+        IStargate stargate,
+        IStargatePool stargatePool,
+        IERC20 token,
+        uint256 stargateID,
+        uint24 _fee,
+        bool stable
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         poolsArray.push(
             Pool(
-                _pool,
-                _stargateID,
-                _token0,
-                _token1,
-                _curvePool,
-                _stargatereward,
-                _wtoken0,
-                _wtoken1
+                LPToken,
+                stargate,
+                stargatePool,
+                token,
+                stargateID,
+                _fee,
+                stable
             )
         );
-    }
-
-    function convertStableToLp(uint256 _pid, uint256 _amount)
-        external
-        view
-        returns (uint256)
-    {
-        address token0 = poolsArray[_pid].token0;
-        address token1 = poolsArray[_pid].token1;
-        uint256 amount0 = convertStableToToken(token0, _amount.div(2));
-        uint256 amount1 = convertStableToToken(token1, _amount.div(2));
-        uint256 liquidity = Curve(poolsArray[_pid].curvePool).calc_token_amount(
-            [amount0, amount1],
-            true
-        );
-        return liquidity;
     }
 }
