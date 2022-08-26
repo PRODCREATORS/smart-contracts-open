@@ -32,31 +32,13 @@ interface IStargatePool {
     function balanceOf(address _user) external view returns(uint256);
     
 }
-interface IGauge {
-    function deposit(uint amount, uint tokenId) external;
 
-    function getReward(address account, address[] memory tokens) external;
-
-    function withdraw(uint amount) external;
-
-    function balanceOf(address user) external view returns (uint);
-}
-
-
-interface IVelodromeFactory {
-    function getPair(address tokenA, address token, bool stable) external view returns (address);
-}
-
-interface IPair {
-    function getReserves() external view returns (uint _reserve0, uint _reserve1, uint _blockTimestampLast);
-}
 
 contract OptimismSynthChef is
     BaseSynthChef
 {
     using SafeMath for uint256;
 
-    IVelodromeFactory public  factory;
     IERC20 public rewardToken;
     address public WETH;
     IStargateRouter public StargateRouter;
@@ -85,14 +67,12 @@ contract OptimismSynthChef is
         IStargateRouter _stargateRouter,
         address _WETH,
         address _stablecoin,
-        IVelodromeFactory _factory,
         uint256 _fee,
         address _treasury,
         address _DEXWrapper,
         IERC20 _rewardToken
     ) BaseSynthChef(_DEXWrapper) {
         StargateRouter = _stargateRouter;
-        factory = _factory;
         rewardToken = _rewardToken;
         WETH = _WETH;
         stablecoin = _stablecoin;
@@ -101,14 +81,6 @@ contract OptimismSynthChef is
     }
 
     receive() external payable {}
-
-    function setFactory(IVelodromeFactory _factory)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        factory = _factory;
-    }
 
     function deposit(
         uint256 _amount,
