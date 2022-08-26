@@ -83,13 +83,14 @@ contract EntangleSynth is ERC20, Ownable {
     }
 
     /**
-     * @dev This function should be called when we add liquidity during compound
+     * @dev This function should be called when we add liquidity
      */
-    function addLPSupply(uint256 _addedLPSupply)
+    function addSupply(uint256 _addedLPSupply, uint256 _addedSynthSupply)
         external
         onlyOwner
     {
         totalLPSupply += _addedLPSupply;
+        totalSynthSupply += _addedSynthSupply;
     }
 
     /**
