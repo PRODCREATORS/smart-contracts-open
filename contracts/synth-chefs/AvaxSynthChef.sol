@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2
-pragma solidity 0.8.12;
+pragma solidity 0.8.15;
 
 import "./utils/IMasterChef.sol";
 import "./utils/IJoeRouter02.sol";

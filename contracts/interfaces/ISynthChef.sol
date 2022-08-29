@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2
-pragma solidity >=0.8.9;
+pragma solidity 0.8.15;
 
 interface ISynthChef {
     function deposit(
