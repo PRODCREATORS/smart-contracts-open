@@ -25,7 +25,7 @@ contract EntangleSynth is ERC20, Ownable {
     uint256 private token1AmountIn;
     uint256 private token2AmountIn;
 
-    uint256 private totalLPSupply; // multiplied by 10**6
+    uint256 private totalLPSupply; // multiplied by 10**18
     uint256 private totalSynthSupply;
 
     IEntangleDEXWrapper public DEXWrapper;
@@ -74,12 +74,22 @@ contract EntangleSynth is ERC20, Ownable {
         ).sqrt();
     }
 
-    function getPrice(uint256 amount) public view returns (uint256 price) {
+    function getPriceFor1LP() public view returns (uint256 price) {
         (uint256 token1Amount, uint256 token2Amount) = getAmounts();
         price = DEXWrapper.previewConvert(address(token1), address(opToken), token1Amount);
         price += DEXWrapper.previewConvert(address(token2), address(opToken), token2Amount);
-        price *= totalLPSupply * amount;
-        price /= totalSynthSupply * 10**6 * 10**decimals();
+    }
+
+    function convertSynthAmountToOpAmount(uint256 synthAmount) public view returns (uint256 opAmount) {
+        uint256 price = getPriceFor1LP();
+        opAmount = price * totalLPSupply * synthAmount;
+        opAmount /= totalSynthSupply * 10**18;
+    }
+
+    function convertOpAmountToSynthAmount(uint256 opAmount) public view returns (uint256 synthAmount) {
+        uint256 price = getPriceFor1LP();
+        synthAmount = opAmount * totalSynthSupply * (10**18);
+        synthAmount /= price * totalLPSupply;
     }
 
     /**

@@ -3,7 +3,7 @@
 pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import "./utils/IERC20Extended.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./PausableAccessControl.sol";
 import "./interfaces/IETHDEXV1.sol";
@@ -47,7 +47,7 @@ contract Router is PausableAccessControl {
 
     IsynthChef chef;
 
-    IERC20Extended opToken;
+    IERC20Metadata opToken;
 
     Ifactory factory;
 
@@ -73,7 +73,7 @@ contract Router is PausableAccessControl {
         address _pool,
         IETHDEXV1 _idex,
         IsynthChef _chef,
-        IERC20Extended _opToken,
+        IERC20Metadata _opToken,
         Ifactory _factory,
         address _bridge,
         address _feeCollector
@@ -191,7 +191,7 @@ contract Router is PausableAccessControl {
         factory = Ifactory(_factory);
     }
 
-    function changeOpToken(IERC20Extended _opToken)
+    function changeOpToken(IERC20Metadata _opToken)
         external
         onlyRole(OWNER)
         whenNotPaused
