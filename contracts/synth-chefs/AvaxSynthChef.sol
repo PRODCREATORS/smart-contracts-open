@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
-contract AvaxSynthChefV2 is BaseSynthChef {
+contract AvaxSynthChef is BaseSynthChef {
     using SafeMath for uint256;
 
     address public chef;
@@ -115,8 +115,8 @@ contract AvaxSynthChefV2 is BaseSynthChef {
      */
     function deposit(
         uint256 _pid,
-        uint256 _amount,
-        address _token
+        address _token,
+        uint256 _amount
     ) public override onlyRole(ADMIN) whenNotPaused {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = addLiquidity(_pid, _amount, _token);
@@ -411,10 +411,10 @@ contract AvaxSynthChefV2 is BaseSynthChef {
      * - the caller must have admin role.
      */
     function withdraw(
-        uint256 _pid,
         uint256 _amount,
         address _toToken,
-        address payable _to
+        address  _to,
+        uint256 _pid
     ) public override onlyRole(ADMIN) {
         require(
             IMasterChef(chef).userInfo(_pid, address(this)).amount >= _amount,
@@ -428,7 +428,6 @@ contract AvaxSynthChefV2 is BaseSynthChef {
             uint256 amount0,
             uint256 amount1
         ) = removeLiquidity(_pid, _amount);
-        if (_toToken != WAVAX) {
             uint256 amountToken = 0;
             amountToken += token0 != _toToken
                 ? token0 != WAVAX
@@ -443,18 +442,6 @@ contract AvaxSynthChefV2 is BaseSynthChef {
                 : amount1;
 
             IERC20(_toToken).transfer(_to, amountToken);
-        } else {
-            uint256 amountAVAX = 0;
-
-            amountAVAX += token0 != WAVAX
-                ? swapToAVAX(amount0, token0)
-                : amount0;
-            amountAVAX += token1 != WAVAX
-                ? swapToAVAX(amount1, token1)
-                : amount1;
-
-            _to.transfer(amountAVAX);
-        }
 
         emit Withdraw(_pid, _amount);
     }
