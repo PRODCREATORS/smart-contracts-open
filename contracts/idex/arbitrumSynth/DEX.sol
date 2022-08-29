@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-import "./ETHSynthFactoryV1.sol";
+import "./Factory.sol";
 import "../utils/ISynthChef.sol";
 
 contract DEX is AccessControlEnumerable {

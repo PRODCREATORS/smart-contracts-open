@@ -4,7 +4,7 @@ pragma solidity ^0.8.12;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract Synth is ERC20, Ownable {
+contract ETHSynthV1 is ERC20, Ownable {
     address public factory;
     uint256 public pid;
 

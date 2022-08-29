@@ -2,9 +2,7 @@
 pragma solidity >=0.8.9;
 
 
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -20,8 +18,14 @@ interface IStargate {
     function emergencyWithdraw(uint256 _pid) external;
 
     function withdraw(uint256 _pid, uint256 _amount) external;
-}
 
+    function userInfo(uint256 _pid, address _user) external view returns(UserInfo memory);
+
+    struct UserInfo {
+        uint256 amount;
+        uint256 rewardDebt;
+    }
+}
 interface IStargateRouter {
     function addLiquidity(uint _poolId, uint256 _amountLD, address _to) external;
 
@@ -34,7 +38,7 @@ interface IStargatePool {
 }
 
 
-contract OptimismSynthChef is
+contract ArbitrumChef is
     BaseSynthChef
 {
     using SafeMath for uint256;
@@ -56,10 +60,8 @@ contract OptimismSynthChef is
     struct Pool {
         IERC20 LPToken;
         IStargate stargate;
-        IStargatePool stargatePool;
         IERC20 token;
         uint256 stargateID;
-        uint24 feeUniswapPool;
         bool stable;
     }
 
@@ -109,7 +111,7 @@ contract OptimismSynthChef is
         address _tokenFrom,
         uint256 _poolID
     )
-        public
+        public 
         whenNotPaused
         returns (
             address token,
@@ -117,8 +119,8 @@ contract OptimismSynthChef is
         )
     {
         Pool memory pool = poolsArray[_poolID];
-        token = address(poolsArray[_poolID].token);
-        amount = token != _tokenFrom ? _convertTokens(_tokenFrom, token, amount, pool.feeUniswapPool) : _amount;
+        token = address(pool.token);
+        amount = token != _tokenFrom ? _convertTokens(_tokenFrom, token, _amount) : _amount;
     }
 
     function _addLiquidity(
@@ -144,13 +146,13 @@ contract OptimismSynthChef is
                 type(uint256).max
             );
         }
-        uint256 amountLiquidity = pool.stargatePool.balanceOf(address(this));
+        uint256 amountLiquidity = pool.LPToken.balanceOf(address(this));
            StargateRouter.addLiquidity(
-                _poolID,
-                _amount,
+                pool.stargateID,
+                amount,
                 address(this)
             );
-        amountLPs = pool.stargatePool.balanceOf(address(this)) - amountLiquidity;
+        amountLPs = pool.LPToken.balanceOf(address(this)) - amountLiquidity;
         return amountLPs;
     }
 
@@ -222,7 +224,7 @@ contract OptimismSynthChef is
         ) = removeLiquidity(_amount, _poolID);
 
         uint256 amountToken = 0;
-        amountToken += token != _toToken ? _convertTokens(token, _toToken, amount, pool.feeUniswapPool) : amount;
+        amountToken += token != _toToken ? _convertTokens(token, _toToken, amount) : amount;
 
         IERC20(_toToken).transfer(_to, amountToken);
         emit Withdraw(_amount);
@@ -239,30 +241,30 @@ contract OptimismSynthChef is
     {
         Pool memory pool = poolsArray[_pid];
         token = address(pool.token);
-        amount = pool.stargatePool.balanceOf(address(this));
+        amount = pool.LPToken.balanceOf(address(this));
     }
 
-    function convertTokenToStablecoin(address _tokenAddress, uint256 _amount, uint24 _fee)
-        public
+    function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
+        public view
         whenNotPaused
         returns (uint256 amountStable)
     {
         if (_tokenAddress == stablecoin)
             return _amount;
-        return _previewConvertTokens(_tokenAddress, stablecoin, _amount, _fee);
+        return _previewConvertTokens(_tokenAddress, stablecoin, _amount);
     }
 
-    function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin, uint24 _fee)
-        internal
+    function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
+        internal view
         returns (uint256 amountToken)
     {
         if (_tokenAddress == stablecoin)
             return _amountStablecoin;
-        return _previewConvertTokens(stablecoin, _tokenAddress, _amountStablecoin, _fee);
+        return _previewConvertTokens(stablecoin, _tokenAddress, _amountStablecoin);
     }
 
     function getBalanceOnFarms(uint256 _pid)
-        public
+        public view
         whenNotPaused
         returns (uint256 totalAmount)
     {
@@ -270,8 +272,7 @@ contract OptimismSynthChef is
             uint256 amount,
             address token
         ) = getAmountsTokensInLP(_pid); //convert amount lps to two token amounts
-        Pool memory pool = poolsArray[_pid];
-        totalAmount += convertTokenToStablecoin(token, amount, pool.feeUniswapPool); //convert token's price to stablecoin price
+        totalAmount += convertTokenToStablecoin(token, amount); //convert token's price to stablecoin price
     }
 
     function setFee(uint256 _fee, uint256 _feeRate)
@@ -304,20 +305,16 @@ contract OptimismSynthChef is
     function addPool(
         IERC20 LPToken,
         IStargate stargate,
-        IStargatePool stargatePool,
         IERC20 token,
         uint256 stargateID,
-        uint24 _fee,
         bool stable
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         poolsArray.push(
             Pool(
                 LPToken,
                 stargate,
-                stargatePool,
                 token,
                 stargateID,
-                _fee,
                 stable
             )
         );

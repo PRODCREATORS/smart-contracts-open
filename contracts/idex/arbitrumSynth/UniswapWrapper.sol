@@ -2,47 +2,46 @@
 pragma solidity ^0.8.12;
 
 import "../interfaces/IEntangleDEXWrapper.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/IQuoterV2.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract UniswapWrapper is IEntangleDEXWrapper {
-    ISwapRouter public router;
-    IQuoterV2 public qouter;
+    IUniswapV2Router01 public router;
+    IUniswapV2Factory public factory;
     address public WETH;
 
-    constructor(address _router, address _qouter) {
-        router = ISwapRouter(_router);
-        qouter = IQuoterV2(_qouter);
+    constructor(address _router) {
+        router = IUniswapV2Router01(_router);
+        factory = IUniswapV2Factory(router.factory());
+        WETH = router.WETH();
     }
 
-    function convert(address from, address to, uint256 amount, uint24 _fee) external returns(uint256 receivedAmount) { 
+    function _getSwapPath(address from, address to) internal view returns (address[] memory path){
+        if (factory.getPair(from, to) != address(0)) {
+            path = new address[](2);
+            path[0] = from;
+            path[1] = to;
+        }
+        else {
+            path = new address[](3);
+            path[0] = from;
+            path[1] = WETH;
+            path[2] = to;
+        }
+    }
 
+    function convert(address from, address to, uint256 amount) external returns(uint256 receivedAmount) {
         IERC20(from).transferFrom(msg.sender, address(this), amount);
-        ISwapRouter.ExactInputSingleParams memory params =
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: from, 
-                tokenOut: to, 
-                fee: _fee, 
-                recipient: msg.sender, 
-                deadline: block.timestamp, 
-                amountIn: amount,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-
-            receivedAmount = router.exactInputSingle(params);
+        if (IERC20(from).allowance(address(this), address(router)) < amount) {
+            IERC20(from).approve(address(router), type(uint256).max);
+        }
+        uint256[] memory amounts = router.swapExactTokensForTokens(amount, 1, _getSwapPath(from, to), msg.sender, block.timestamp);
+        receivedAmount = amounts[amounts.length - 1];
     }
 
-    function previewConvert(address from, address to, uint256 amount, uint24 _fee) external  returns(uint256 amountToReceive) {
-        IQuoterV2.QuoteExactInputSingleParams  memory params =
-            IQuoterV2.QuoteExactInputSingleParams ({
-                tokenIn: from, 
-                tokenOut: to, 
-                fee: _fee, 
-                amountIn: amount,
-                sqrtPriceLimitX96: 0
-        });
-        (amountToReceive, , , ) = qouter.quoteExactInputSingle(params);
+    function previewConvert(address from, address to, uint256 amount) external view returns(uint256 amountToReceive) {
+        uint256[] memory amounts = router.getAmountsOut(amount, _getSwapPath(from, to));
+        amountToReceive = amounts[amounts.length - 1];
     }
 }

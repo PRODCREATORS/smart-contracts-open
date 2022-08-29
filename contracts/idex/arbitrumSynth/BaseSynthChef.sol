@@ -20,14 +20,14 @@ contract BaseSynthChef is PausableAccessControl, Lender {
         _setupRole(OWNER_ROLE, msg.sender);
     }
 
-    function _convertTokens(address from, address to, uint256 amount, uint24 _fee) internal returns(uint256) {
+    function _convertTokens(address from, address to, uint256 amount) internal  returns(uint256) {
         if (IERC20(from).allowance(address(this), address(DEXWrapper)) < amount) {
             IERC20(from).approve(address(DEXWrapper), type(uint256).max);
         }
-        return DEXWrapper.convert(from, to, amount, _fee);
+        return DEXWrapper.convert(from, to, amount);
     }
 
-    function _previewConvertTokens(address from, address to, uint256 amount, uint24 _fee) internal returns(uint256) {
-        return DEXWrapper.previewConvert(from, to, amount, _fee);
+    function _previewConvertTokens(address from, address to, uint256 amount) internal view returns(uint256) {
+        return DEXWrapper.previewConvert(from, to, amount);
     }
 }

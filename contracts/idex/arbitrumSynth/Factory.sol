@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.12;
 
-import "./ETHSynthV1.sol";
+import "./Synth.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 /** @dev Contract that manages synth tokens */
-contract Factory is AccessControlEnumerable {
+contract ETHSynthFactoryV1 is AccessControlEnumerable {
     bytes32 public constant SYNT_HASH =
         keccak256(abi.encodePacked(type(ETHSynthV1).creationCode));
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
