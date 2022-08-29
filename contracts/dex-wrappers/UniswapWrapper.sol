@@ -33,6 +33,9 @@ contract UniswapWrapper is IEntangleDEXWrapper {
 
     function convert(address from, address to, uint256 amount) external returns(uint256 receivedAmount) {
         IERC20(from).transferFrom(msg.sender, address(this), amount);
+        if (IERC20(from).allowance(address(this), address(router)) < amount) {
+            IERC20(from).approve(address(router), type(uint256).max);
+        }
         uint256[] memory amounts = router.swapExactTokensForTokens(amount, 1, _getSwapPath(from, to), msg.sender, block.timestamp);
         receivedAmount = amounts[amounts.length - 1];
     }
