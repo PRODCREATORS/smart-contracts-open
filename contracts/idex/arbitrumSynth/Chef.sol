@@ -13,7 +13,7 @@ interface IStargate {
     function deposit(
         uint256 _pid,
         uint256 _amount
-    ) external returns (bool);
+    ) external;
 
     function emergencyWithdraw(uint256 _pid) external;
 
@@ -146,13 +146,13 @@ contract ArbitrumChef is
                 type(uint256).max
             );
         }
-        uint256 amountLiquidity = pool.LPToken.balanceOf(address(this));
-           StargateRouter.addLiquidity(
+        uint256 LiquidityAmount = pool.LPToken.balanceOf(address(this));
+        StargateRouter.addLiquidity(
                 pool.stargateID,
                 amount,
                 address(this)
             );
-        amountLPs = pool.LPToken.balanceOf(address(this)) - amountLiquidity;
+        amountLPs = pool.LPToken.balanceOf(address(this)) - LiquidityAmount;
         return amountLPs;
     }
 
@@ -179,7 +179,7 @@ contract ArbitrumChef is
                 address(rewardToken),
                 _pid
             );
-            _deposit(amountLPs, _pid);
+            _deposit(_pid, amountLPs);
             emit Compound(getBalanceOnFarms(_pid));
             if (amountTokenFee > 0) {
                 rewardToken.transfer(treasury, amountTokenFee);
@@ -318,5 +318,6 @@ contract ArbitrumChef is
                 stable
             )
         );
+        LPToken.approve(address(stargate), type(uint256).max);
     }
 }

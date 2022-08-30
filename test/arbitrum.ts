@@ -28,7 +28,7 @@ describe("Arbitrum Synth Chef", function () {
         const ChefFactory = (await ethers.getContractFactory("ArbitrumChef")) as ArbitrumChef__factory;
         chef = (await ChefFactory.deploy("0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614",//Router.sol (stargate)
             "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",//WETH
-            "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8",//USDC
+            "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",//USDC
             "1",//fee
             await owner.getAddress(),//treasury
             wrapper.address,//DEXWrapper
@@ -37,29 +37,28 @@ describe("Arbitrum Synth Chef", function () {
         await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress());
         await chef.addPool("0x892785f33CdeE22A30AEF750F285E18c18040c3e", // pool (stargate)
                         "0xeA8DfEE1898a7e0a59f7527F076106d7e44c2176", //LPStaking.sol
-                        "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8", //USDC
+                        "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", //USDC
                         1, //poolID (USDC)
                         true); //stable?
-        console.log(await chef.poolsArray(0));     
+        console.log(await chef.poolsArray(0)); 
     });
 
     it("Deposit", async function () { 
-        let balancePool = await (await lpStaking.userInfo("1", chef.address.toString())).amount;
+        
         let balance  = await wrapper.previewConvert("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", ethers.utils.parseEther("1.0"));
         console.log(balance);
-        console.log(balancePool);
         await weth.approve(chef.address, ethers.constants.MaxUint256);
         await chef.deposit(ethers.utils.parseEther("1.0"), weth.address, 0);
+        let balancePool = await chef.getAmountsTokensInLP(0);
+        console.log("money: " + balancePool);
         let data = await chef.getAmountsTokensInLP(0);
     });
-
+    
     it("Compound", async function () {
         let balanceBeforeCompound = await chef.getBalanceOnFarms(0);
-        console.log(balanceBeforeCompound);
         await ethers.provider.send("evm_increaseTime", [3600*24*365]);
         await chef.compound(0);
         let balanceAfterCompound = await chef.getBalanceOnFarms(0);
-        console.log(balanceAfterCompound);
         expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
     });
 
