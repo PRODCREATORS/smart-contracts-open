@@ -38,10 +38,9 @@ interface IStargatePool {
 }
 
 
-contract ArbitrumChef is
+contract ArbitrumSynthShef is
     BaseSynthChef
 {
-    using SafeMath for uint256;
 
     IERC20 public rewardToken;
     address public WETH;
@@ -172,7 +171,7 @@ contract ArbitrumChef is
     function _compound(uint256 _pid) internal {
         uint256 amountToken = rewardToken.balanceOf(address(this));
         if (amountToken > 0) {
-            uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
+            uint256 amountTokenFee = amountToken * fee / feeRate;
             uint256 amountwithfee = amountToken - amountTokenFee;
             uint256 amountLPs = _addLiquidity(
                 amountwithfee,
