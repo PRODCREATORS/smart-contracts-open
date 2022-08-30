@@ -1,12 +1,13 @@
-import { UniswapWrapper__factory } from './../typechain-types/factories/contracts/idex/arbitrumSynth/UniswapWrapper__factory';
+
+
+import { UniswapWrapper__factory } from './../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory'
 import { expect } from "chai";
 import { Signer, BigNumber, Contract } from "ethers";
 import { ethers } from "hardhat";
 import { ArbitrumChef, IStargate } from "../typechain-types/contracts/idex/arbitrumSynth/Chef.sol/";
-import { ArbitrumChef__factory } from "../typechain-types/factories/contracts/idex/arbitrumSynth/Chef.sol/ArbitrumChef__factory";
-import { IStargate__factory } from "../typechain-types/factories/contracts/idex/arbitrumSynth/Chef.sol/IStargate__factory";
-import { UniswapWrapper  } from "../typechain-types/contracts/idex/arbitrumSynth/UniswapWrapper"
-import { ERC20__factory } from "../typechain-types/factories/@openzeppelin/contracts/token/ERC20";
+import { ArbitrumChef__factory } from './../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthShef.sol/ArbitrumChef__factory';
+import { IStargate__factory } from './../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthShef.sol/IStargate__factory';
+import { UniswapWrapper } from './../typechain-types/contracts/dex-wrappers/UniswapWrapper';
 
 const WETH_ABI = [{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"src","type":"address"},{"indexed":true,"internalType":"address","name":"guy","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"dst","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"src","type":"address"},{"indexed":true,"internalType":"address","name":"dst","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"src","type":"address"},{"indexed":false,"internalType":"uint256","name":"wad","type":"uint256"}],"name":"Withdrawal","type":"event"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"guy","type":"address"},{"internalType":"uint256","name":"wad","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[],"name":"deposit","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"dst","type":"address"},{"internalType":"uint256","name":"wad","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"address","name":"src","type":"address"},{"internalType":"address","name":"dst","type":"address"},{"internalType":"uint256","name":"wad","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"internalType":"uint256","name":"wad","type":"uint256"}],"name":"withdraw","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"}];
 describe("Arbitrum Synth Chef", function () {
@@ -39,14 +40,12 @@ describe("Arbitrum Synth Chef", function () {
         await chef.addPool("0x892785f33CdeE22A30AEF750F285E18c18040c3e", // pool (stargate)
                         "0xeA8DfEE1898a7e0a59f7527F076106d7e44c2176", //LPStaking.sol
                         "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", //USDC
-                        0, //poolID (USDC)
-                        1,
-                        true); //stable?
+                        0, //poolRouterlID (USDC)
+                        1); //poolLpStakingID (USDC)
         console.log(await chef.poolsArray(0)); 
     });
 
     it("Deposit", async function () { 
-        let LP = ERC20__factory.connect("0x892785f33CdeE22A30AEF750F285E18c18040c3e", owner);
         let balance  = await wrapper.previewConvert("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", ethers.utils.parseEther("1.0"));
         await weth.approve(chef.address, ethers.constants.MaxUint256);
         await chef.deposit(ethers.utils.parseEther("1.0"), weth.address, 0);
@@ -64,10 +63,11 @@ describe("Arbitrum Synth Chef", function () {
     });
 
     it("Withdraw", async function () {
-        let balanceBeforeWithdraw = await (await lpStaking.userInfo("1", chef.address.toString())).amount;
+        let balanceBeforeWithdraw = await (await lpStaking.userInfo("0", chef.address.toString())).amount;
         let amount = balanceBeforeWithdraw.div(10);
-        await chef.withdraw(amount, "0x3c8B650257cFb5f272f799F5e2b4e65093a11a05", owner.getAddress(), 0);
-        let balanceAfterWithdraw = await (await lpStaking.userInfo("1", chef.address.toString())).amount;
+        await chef.withdraw(amount, "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", owner.getAddress(), 0);
+        let balanceAfterWithdraw = await (await lpStaking.userInfo("0", chef.address.toString())).amount; 
+        console.log(balanceBeforeWithdraw + " = " + balanceAfterWithdraw);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });
 });

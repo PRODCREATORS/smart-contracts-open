@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import "../utils/IERC20Extended.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 interface IETHDEXV1 {
     function buy(uint8 _pid, uint256 _amount) external returns (uint256 synthAmount);
@@ -13,7 +13,7 @@ interface IETHDEXV1 {
 }
 
 struct Synth {
-        IERC20Extended synth;
+        IERC20Metadata synth;
         uint8 synthDecimals;
         uint256 rate;
         uint8 rateDecimals;

@@ -1,51 +1,57 @@
 // SPDX-License-Identifier: GPL-2
 pragma solidity >=0.8.9;
 
-
-
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./BaseSynthChef.sol";
 
-interface IStargate {
-    function deposit(
-        uint256 _pid,
-        uint256 _amount
-    ) external;
+interface IGauge {
+    function deposit(uint amount, uint tokenId) external;
 
-    function emergencyWithdraw(uint256 _pid) external;
+    function getReward(address account, address[] memory tokens) external;
 
-    function withdraw(uint256 _pid, uint256 _amount) external;
+    function withdraw(uint amount) external;
 
-    function userInfo(uint256 _pid, address _user) external view returns(UserInfo memory);
-
-    struct UserInfo {
-        uint256 amount;
-        uint256 rewardDebt;
-    }
+    function balanceOf(address user) external view returns (uint);
 }
 
-interface IStargateRouter {
-    function addLiquidity(uint _poolId, uint256 _amountLD, address _to) external;
+interface IVelodromeRouter {
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
 
-    function instantRedeemLocal(uint16 _srcPoolId, uint256 _amountLP, address _to) external returns(uint256 amountSD);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+
+    function quoteRemoveLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint liquidity
+    ) external view returns (uint amountA, uint amountB);
 }
 
-interface IStargatePool {
-    function balanceOf(address _user) external view returns(uint256);
-}
-
-
-contract ArbitrumChef is
+contract OptimismSynthChef is
     BaseSynthChef
 {
-    using SafeMath for uint256;
-
     IERC20 public rewardToken;
-    address public WETH;
-    IStargateRouter public stargateRouter;
+    IVelodromeRouter public velodromeRouter;
 
     uint256 public fee;
     uint256 public feeRate = 1e4;
@@ -59,25 +65,22 @@ contract ArbitrumChef is
 
     struct Pool {
         IERC20 LPToken;
-        IStargate stargate;
-        IERC20 token;
-        uint256 stargateLPStakingPoolID;
-        uint256 stargateRouterPoolID;
+        IGauge gauge;
+        IERC20 token0;
+        IERC20 token1;
         bool stable;
     }
 
     constructor(
-        IStargateRouter _stargateRouter,
-        address _WETH,
+        IVelodromeRouter _velodromeRouter,
         address _stablecoin,
         uint256 _fee,
         address _treasury,
         address _DEXWrapper,
         IERC20 _rewardToken
     ) BaseSynthChef(_DEXWrapper) {
-        stargateRouter = _stargateRouter;
+        velodromeRouter = _velodromeRouter;
         rewardToken = _rewardToken;
-        WETH = _WETH;
         stablecoin = _stablecoin;
         fee = _fee;
         treasury = _treasury;
@@ -89,7 +92,7 @@ contract ArbitrumChef is
         uint256 _amount,
         address _token,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
         IERC20(_token).transferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = _addLiquidity(_amount, _token, _poolID);
         _deposit(amountLPs, _poolID);
@@ -100,11 +103,11 @@ contract ArbitrumChef is
     function _deposit(uint256 _amount, uint256 _poolID) internal {
         Pool memory pool = poolsArray[_poolID];
         if (
-            pool.LPToken.allowance(address(this), address(pool.stargate)) < _amount
+            pool.LPToken.allowance(address(this), address(pool.gauge)) < _amount
         ) {
-            pool.LPToken.approve(address(pool.stargate), type(uint256).max);
+            pool.LPToken.approve(address(pool.gauge), type(uint256).max);
         }
-        pool.stargate.deposit(pool.stargateLPStakingPoolID, _amount);
+        pool.gauge.deposit(_amount, 0);
     }
 
     function convertTokensToProvideLiquidity(
@@ -112,16 +115,19 @@ contract ArbitrumChef is
         address _tokenFrom,
         uint256 _poolID
     )
-        public 
+        public
         whenNotPaused
         returns (
-            address token,
-            uint256 amount
+            address token0,
+            address token1,
+            uint256 amount0,
+            uint256 amount1
         )
     {
-        Pool memory pool = poolsArray[_poolID];
-        token = address(pool.token);
-        amount = token != _tokenFrom ? _convertTokens(_tokenFrom, token, _amount) : _amount;
+        token0 = address(poolsArray[_poolID].token0);
+        token1 = address(poolsArray[_poolID].token1);
+        amount0 = token0 != _tokenFrom ? _convertTokens(_tokenFrom, token0, amount0) : _amount / 2;
+        amount1 = token1 != _tokenFrom ? _convertTokens(_tokenFrom, token1, amount1) : _amount / 2;
     }
 
     function _addLiquidity(
@@ -131,34 +137,54 @@ contract ArbitrumChef is
     ) internal returns (uint256) {
         uint256 amountLPs;
         (
-            address token,
-            uint256 amount
+            address token0,
+            address token1,
+            uint256 amount0,
+            uint256 amount1
         ) = convertTokensToProvideLiquidity(_amount, _tokenFrom, _poolID);
         Pool memory pool = poolsArray[_poolID];
 
         if (
-            IERC20(token).allowance(
+            IERC20(token0).allowance(
                 address(this),
-                address(stargateRouter)
-            ) < amount
+                address(velodromeRouter)
+            ) < amount0
         ) {
-            IERC20(token).approve(
-                address(stargateRouter),
+            IERC20(token0).approve(
+                address(velodromeRouter),
                 type(uint256).max
             );
         }
-        uint256 liquidityAmount = pool.LPToken.balanceOf(address(this));
-        stargateRouter.addLiquidity(
-                pool.stargateRouterPoolID,
-                amount,
-                address(this)
+
+        if (
+            IERC20(token1).allowance(
+                address(this),
+                address(velodromeRouter)
+            ) < amount1
+        ) {
+            IERC20(token1).approve(
+                address(velodromeRouter),
+                type(uint256).max
             );
-        amountLPs = pool.LPToken.balanceOf(address(this)) - liquidityAmount;
+        }
+
+        (, , amountLPs) = velodromeRouter.addLiquidity(token0, 
+            token1, 
+            pool.stable,
+            amount0, 
+            amount1,
+            1,
+            1,
+            address(this),
+            block.timestamp
+        );
         return amountLPs;
     }
 
     function _harvest(uint256 _poolID) internal {
-        _deposit(_poolID, 0);
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(rewardToken);
+        poolsArray[_poolID].gauge.getReward(address(this), tokens);
     }
 
     function compound(uint256 _pid)
@@ -173,14 +199,14 @@ contract ArbitrumChef is
     function _compound(uint256 _pid) internal {
         uint256 amountToken = rewardToken.balanceOf(address(this));
         if (amountToken > 0) {
-            uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
+            uint256 amountTokenFee = amountToken * fee / feeRate;
             uint256 amountwithfee = amountToken - amountTokenFee;
             uint256 amountLPs = _addLiquidity(
                 amountwithfee,
                 address(rewardToken),
                 _pid
             );
-            _deposit(_pid, amountLPs);
+            _deposit(amountLPs, _pid);
             emit Compound(getBalanceOnFarms(_pid));
             if (amountTokenFee > 0) {
                 rewardToken.transfer(treasury, amountTokenFee);
@@ -194,20 +220,30 @@ contract ArbitrumChef is
     )
         internal
         returns (
-            address token,
-            uint256 amount
+            address token0,
+            address token1,
+            uint256 amount0,
+            uint256 amount1
         )
     {
         Pool memory pool = poolsArray[_poolID];
-        token = address(pool.token);
+        token0 = address(pool.token0);
+        token1 = address(pool.token1);
 
-        if (pool.LPToken.allowance(address(this), address(stargateRouter)) < _amount) {
-            pool.LPToken.approve(address(stargateRouter), type(uint256).max);
+        if (pool.LPToken.allowance(address(this), address(velodromeRouter)) < _amount) {
+            pool.LPToken.approve(address(velodromeRouter), type(uint256).max);
         }
-        (amount) = stargateRouter.instantRedeemLocal(uint16(pool.stargateRouterPoolID),
-         _amount, 
-         address(this)
-
+        uint256[2] memory t;
+        t[0] = 0;
+        t[1] = 0;
+        (amount0, amount1) = velodromeRouter.removeLiquidity(token0, 
+            token1, 
+            pool.stable,
+            _amount,
+            amount0, 
+            amount1,
+            address(this),
+            block.timestamp
         );
     }
 
@@ -216,16 +252,19 @@ contract ArbitrumChef is
         address _toToken,
         address _to,
         uint256 _poolID
-    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
         Pool memory pool = poolsArray[_poolID];
-        pool.stargate.withdraw(pool.stargateLPStakingPoolID, _amount);
+        pool.gauge.withdraw(_amount);
         (
-            address token,
-            uint256 amount
+            address token0,
+            address token1,
+            uint256 amount0,
+            uint256 amount1
         ) = removeLiquidity(_amount, _poolID);
-
         uint256 amountToken = 0;
-        amountToken += token != _toToken ? _convertTokens(token, _toToken, amount) : amount;
+        amountToken += token0 != _toToken ? _convertTokens(token0, _toToken, amount0) : amount0;
+
+        amountToken += token1 != _toToken ? _convertTokens(token1, _toToken, amount1) : amount1;
 
         IERC20(_toToken).transfer(_to, amountToken);
         emit Withdraw(_amount);
@@ -236,17 +275,22 @@ contract ArbitrumChef is
         view
         whenNotPaused
         returns (
-            uint256 amount,
-            address token
+            uint256 amount0,
+            uint256 amount1,
+            address token0,
+            address token1
         )
     {
         Pool memory pool = poolsArray[_pid];
-        token = address(pool.token);
-        amount = pool.LPToken.balanceOf(address(this));
+        token0 = address(pool.token0);
+        token1 = address(pool.token1);
+        uint256 amountLP = pool.gauge.balanceOf(address(this));
+        (amount0, amount1) = velodromeRouter.quoteRemoveLiquidity(address(token0), address(token1), pool.stable, amountLP);
     }
 
     function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
-        public view
+        public
+        view
         whenNotPaused
         returns (uint256 amountStable)
     {
@@ -256,7 +300,8 @@ contract ArbitrumChef is
     }
 
     function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
-        internal view
+        internal
+        view
         returns (uint256 amountToken)
     {
         if (_tokenAddress == stablecoin)
@@ -265,15 +310,19 @@ contract ArbitrumChef is
     }
 
     function getBalanceOnFarms(uint256 _pid)
-        public view
+        public
+        view
         whenNotPaused
         returns (uint256 totalAmount)
     {
         (
-            uint256 amount,
-            address token
+            uint256 amount0,
+            uint256 amount1,
+            address token0,
+            address token1
         ) = getAmountsTokensInLP(_pid); //convert amount lps to two token amounts
-        totalAmount += convertTokenToStablecoin(token, amount); //convert token's price to stablecoin price
+        totalAmount += convertTokenToStablecoin(token0, amount0); //convert token's price to stablecoin price
+        totalAmount += convertTokenToStablecoin(token1, amount1); //convert token's price to stablecoin price
     }
 
     function setFee(uint256 _fee, uint256 _feeRate)
@@ -305,19 +354,17 @@ contract ArbitrumChef is
 
     function addPool(
         IERC20 LPToken,
-        IStargate stargate,
-        IERC20 token,
-        uint256 stargateLPStakingPoolID,
-        uint256 stargateRouterPoolID,
+        IGauge gauge,
+        IERC20 token0,
+        IERC20 token1,
         bool stable
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         poolsArray.push(
             Pool(
                 LPToken,
-                stargate,
-                token,
-                stargateLPStakingPoolID,
-                stargateRouterPoolID,
+                gauge,
+                token0,
+                token1,
                 stable
             )
         );

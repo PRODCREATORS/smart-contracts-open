@@ -7,8 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
+import "./interfaces/IEntangleDEXWrapper.sol";
 
-contract OptimismSynthV1 is ERC20, Ownable {
+contract EntangleSynth is ERC20, Ownable {
     using PRBMathUD60x18 for uint256;
 
     address public factory;
@@ -24,8 +25,10 @@ contract OptimismSynthV1 is ERC20, Ownable {
     uint256 private token1AmountIn;
     uint256 private token2AmountIn;
 
-    uint256 private totalLPSupply; // multiplied by 10**6
+    uint256 private totalLPSupply; // multiplied by 10**18
     uint256 private totalSynthSupply;
+
+    IEntangleDEXWrapper public DEXWrapper;
 
     /**
      * @dev Sets the values for {factory}.
@@ -39,7 +42,8 @@ contract OptimismSynthV1 is ERC20, Ownable {
         uint256 _totalLPSupply,
         IUniswapV2Pair _pair,
         IUniswapV2Router01 _router,
-        IERC20 _opToken
+        IERC20 _opToken,
+        IEntangleDEXWrapper _DEXWrapper
     ) ERC20("ETHSynth", "SYNTH") {
         factory = msg.sender;
         token1 = _token1;
@@ -51,47 +55,52 @@ contract OptimismSynthV1 is ERC20, Ownable {
         pair = _pair;
         router = _router;
         opToken = _opToken;
+        DEXWrapper = _DEXWrapper;
     }
 
     /**
-     * @dev Returns the amounts of token1 and token2 which are righnt now on the farm behind this Synth
+     * @dev Returns the amounts of token1 and token2 which are right now on the farm behind this Synth
      */
     function getAmounts()
         public
         view
         returns (uint256 token1Amount, uint256 token2Amount)
     {
-        (uint256 token1Reserves, uint256 token2Reserves, ) = pair.getReserves();
         token1Amount = uint256(
-            (token1AmountIn * token2AmountIn * token1Reserves) / token2Reserves
+            (token1AmountIn * DEXWrapper.previewConvert(address(token2), address(token1), token2AmountIn))
         ).sqrt();
         token2Amount = uint256(
-            (token1AmountIn * token2AmountIn * token2Reserves) / token1Reserves
+            (token2AmountIn * DEXWrapper.previewConvert(address(token1), address(token2), token1AmountIn))
         ).sqrt();
     }
 
-    function getPrice(uint256 amount) public view returns (uint256 price) {
-        (uint256 token1Amount, uint256 token2Amount, ) = pair.getReserves();
-        address[] memory path = new address[](2);
-        path[0] = address(token1);
-        path[1] = address(opToken);
-        price = router.getAmountsOut(token1Amount, path)[0];
-        path = new address[](2);
-        path[0] = address(token2);
-        path[1] = address(opToken);
-        price += router.getAmountsOut(token2Amount, path)[0];
-        price *= totalLPSupply * amount;
-        price /= totalSynthSupply * 10**6 * 10**decimals();
+    function getPriceFor1LP() public view returns (uint256 price) {
+        (uint256 token1Amount, uint256 token2Amount) = getAmounts();
+        price = DEXWrapper.previewConvert(address(token1), address(opToken), token1Amount);
+        price += DEXWrapper.previewConvert(address(token2), address(opToken), token2Amount);
+    }
+
+    function convertSynthAmountToOpAmount(uint256 synthAmount) public view returns (uint256 opAmount) {
+        uint256 price = getPriceFor1LP();
+        opAmount = price * totalLPSupply * synthAmount;
+        opAmount /= totalSynthSupply * 10**18;
+    }
+
+    function convertOpAmountToSynthAmount(uint256 opAmount) public view returns (uint256 synthAmount) {
+        uint256 price = getPriceFor1LP();
+        synthAmount = opAmount * totalSynthSupply * (10**18);
+        synthAmount /= price * totalLPSupply;
     }
 
     /**
-     * @dev This function should be called when we add liquidity during compound
+     * @dev This function should be called when we add liquidity
      */
-    function addLPSupply(uint256 _addedLPSupply)
+    function addSupply(uint256 _addedLPSupply, uint256 _addedSynthSupply)
         external
         onlyOwner
     {
         totalLPSupply += _addedLPSupply;
+        totalSynthSupply += _addedSynthSupply;
     }
 
     /**
