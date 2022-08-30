@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2
-pragma solidity 0.8.15;
+pragma solidity 0.8.12;
 
 import "./utils/IMasterChef.sol";
 import "./utils/IJoeRouter02.sol";
@@ -171,18 +171,9 @@ contract AvaxSynthChef is BaseSynthChef {
     {
         token0 = IJoePair(_lpPair).token0();
         token1 = IJoePair(_lpPair).token1();
-
-        if (_tokenFrom == WAVAX) {
-            amount0 = swapAVAX(_amount / 2, token0);
-            amount1 = swapAVAX(_amount / 2, token1);
-        } else {
-            amount0 = token0 != _tokenFrom
-                ? swapTokens(_amount / 2, getSwapPath(_tokenFrom, token0))
-                : _amount / 2;
-            amount1 = token1 != _tokenFrom
-                ? swapTokens(_amount / 2, getSwapPath(_tokenFrom, token1))
-                : _amount / 2;
-        }
+        amount0 = token0 != _tokenFrom ? _convertTokens(_tokenFrom, token0, amount0) : _amount / 2;
+        amount1 = token1 != _tokenFrom ? _convertTokens(_tokenFrom, token1, amount1) : _amount / 2;
+        
     }
 
     /**
@@ -214,8 +205,6 @@ contract AvaxSynthChef is BaseSynthChef {
         if (IERC20(token1).allowance(address(this), router) == 0) {
             IERC20(token1).approve(router, type(uint256).max);
         }
-
-        if (token0 != WAVAX && token1 != WAVAX) {
             (, , amountLPs) = IJoeRouter02(router).addLiquidity(
                 token0,
                 token1,
@@ -226,63 +215,11 @@ contract AvaxSynthChef is BaseSynthChef {
                 address(this),
                 block.timestamp
             );
-        } else if (token0 == WAVAX) {
-            (, , amountLPs) = IJoeRouter02(router).addLiquidityAVAX{
-                value: amount0
-            }(token1, amount1, 1, 1, address(this), block.timestamp);
-        } else {
-            (, , amountLPs) = IJoeRouter02(router).addLiquidityAVAX{
-                value: amount1
-            }(token0, amount0, 1, 1, address(this), block.timestamp);
-        }
+    
 
         if (IERC20(lpPair).allowance(address(this), chef) < amountLPs) {
             IERC20(lpPair).approve(chef, type(uint256).max);
         }
-    }
-
-    /**
-     * @dev function to swap crypto for current token
-     */
-    function swapAVAX(uint256 _amount, address _tokenTo)
-        internal
-        returns (uint256)
-    {
-        if (_tokenTo == IJoeRouter02(router).WAVAX()) {
-            return _amount;
-        }
-        address[] memory path = new address[](2);
-        path[0] = IJoeRouter02(router).WAVAX();
-        path[1] = _tokenTo;
-        uint256[] memory amountLPs = IJoeRouter02(router)
-            .swapExactAVAXForTokens{value: _amount}(
-            0,
-            path,
-            address(this),
-            block.timestamp
-        );
-
-        return amountLPs[1];
-    }
-
-    /**
-     * @dev function to swap token for crypto
-     */
-    function swapToAVAX(uint256 _amount, address _fromToken)
-        internal
-        returns (uint256)
-    {
-        address[] memory path = new address[](2);
-        path[0] = _fromToken;
-        path[1] = IJoeRouter02(router).WAVAX();
-        uint256[] memory amounts = IJoeRouter02(router).swapExactTokensForAVAX(
-            _amount,
-            1,
-            path,
-            address(this),
-            block.timestamp
-        );
-        return amounts[1];
     }
 
     /**
@@ -371,8 +308,6 @@ contract AvaxSynthChef is BaseSynthChef {
         if (IERC20(lpPair).allowance(address(this), router) < _amount) {
             IERC20(lpPair).approve(router, type(uint256).max);
         }
-
-        if (token0 != WAVAX && token1 != WAVAX) {
             (amount0, amount1) = IJoeRouter02(router).removeLiquidity(
                 token0,
                 token1,
@@ -382,25 +317,7 @@ contract AvaxSynthChef is BaseSynthChef {
                 address(this),
                 block.timestamp
             );
-        } else if (token0 == WAVAX) {
-            (amount1, amount0) = IJoeRouter02(router).removeLiquidityAVAX(
-                token1,
-                _amount,
-                1,
-                1,
-                address(this),
-                block.timestamp
-            );
-        } else {
-            (amount0, amount1) = IJoeRouter02(router).removeLiquidityAVAX(
-                token0,
-                _amount,
-                1,
-                1,
-                address(this),
-                block.timestamp
-            );
-        }
+         
     }
 
     /**
@@ -429,18 +346,8 @@ contract AvaxSynthChef is BaseSynthChef {
             uint256 amount1
         ) = removeLiquidity(_pid, _amount);
             uint256 amountToken = 0;
-            amountToken += token0 != _toToken
-                ? token0 != WAVAX
-                    ? swapTokens(amount0, getSwapPath(token0, _toToken))
-                    : swapAVAX(amount0, _toToken)
-                : amount0;
-
-            amountToken += token1 != _toToken
-                ? token1 != WAVAX
-                    ? swapTokens(amount1, getSwapPath(token1, _toToken))
-                    : swapAVAX(amount1, _toToken)
-                : amount1;
-
+            amountToken += token0 != _toToken ? _convertTokens(token0, _toToken, amount0) : amount0;
+            amountToken += token1 != _toToken ? _convertTokens(token1, _toToken, amount1) : amount1;
             IERC20(_toToken).transfer(_to, amountToken);
 
         emit Withdraw(_pid, _amount);
