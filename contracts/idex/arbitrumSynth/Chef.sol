@@ -26,6 +26,7 @@ interface IStargate {
         uint256 rewardDebt;
     }
 }
+
 interface IStargateRouter {
     function addLiquidity(uint _poolId, uint256 _amountLD, address _to) external;
 
@@ -34,7 +35,6 @@ interface IStargateRouter {
 
 interface IStargatePool {
     function balanceOf(address _user) external view returns(uint256);
-    
 }
 
 
@@ -45,7 +45,7 @@ contract ArbitrumChef is
 
     IERC20 public rewardToken;
     address public WETH;
-    IStargateRouter public StargateRouter;
+    IStargateRouter public stargateRouter;
 
     uint256 public fee;
     uint256 public feeRate = 1e4;
@@ -61,7 +61,8 @@ contract ArbitrumChef is
         IERC20 LPToken;
         IStargate stargate;
         IERC20 token;
-        uint256 stargateID;
+        uint256 stargateLPStakingPoolID;
+        uint256 stargateRouterPoolID;
         bool stable;
     }
 
@@ -74,7 +75,7 @@ contract ArbitrumChef is
         address _DEXWrapper,
         IERC20 _rewardToken
     ) BaseSynthChef(_DEXWrapper) {
-        StargateRouter = _stargateRouter;
+        stargateRouter = _stargateRouter;
         rewardToken = _rewardToken;
         WETH = _WETH;
         stablecoin = _stablecoin;
@@ -99,11 +100,11 @@ contract ArbitrumChef is
     function _deposit(uint256 _amount, uint256 _poolID) internal {
         Pool memory pool = poolsArray[_poolID];
         if (
-            pool.LPToken.allowance(address(this), address( pool.stargate)) < _amount
+            pool.LPToken.allowance(address(this), address(pool.stargate)) < _amount
         ) {
             pool.LPToken.approve(address(pool.stargate), type(uint256).max);
         }
-        pool.stargate.deposit(pool.stargateID, _amount);
+        pool.stargate.deposit(pool.stargateLPStakingPoolID, _amount);
     }
 
     function convertTokensToProvideLiquidity(
@@ -138,21 +139,21 @@ contract ArbitrumChef is
         if (
             IERC20(token).allowance(
                 address(this),
-                address(StargateRouter)
+                address(stargateRouter)
             ) < amount
         ) {
             IERC20(token).approve(
-                address(StargateRouter),
+                address(stargateRouter),
                 type(uint256).max
             );
         }
-        uint256 LiquidityAmount = pool.LPToken.balanceOf(address(this));
-        StargateRouter.addLiquidity(
-                pool.stargateID,
+        uint256 liquidityAmount = pool.LPToken.balanceOf(address(this));
+        stargateRouter.addLiquidity(
+                pool.stargateRouterPoolID,
                 amount,
                 address(this)
             );
-        amountLPs = pool.LPToken.balanceOf(address(this)) - LiquidityAmount;
+        amountLPs = pool.LPToken.balanceOf(address(this)) - liquidityAmount;
         return amountLPs;
     }
 
@@ -200,10 +201,10 @@ contract ArbitrumChef is
         Pool memory pool = poolsArray[_poolID];
         token = address(pool.token);
 
-        if (pool.LPToken.allowance(address(this), address(StargateRouter)) < _amount) {
-            pool.LPToken.approve(address(StargateRouter), type(uint256).max);
+        if (pool.LPToken.allowance(address(this), address(stargateRouter)) < _amount) {
+            pool.LPToken.approve(address(stargateRouter), type(uint256).max);
         }
-        (amount) = StargateRouter.instantRedeemLocal(uint16(pool.stargateID),
+        (amount) = stargateRouter.instantRedeemLocal(uint16(pool.stargateRouterPoolID),
          _amount, 
          address(this)
 
@@ -217,7 +218,7 @@ contract ArbitrumChef is
         uint256 _poolID
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         Pool memory pool = poolsArray[_poolID];
-        pool.stargate.withdraw(pool.stargateID, _amount);
+        pool.stargate.withdraw(pool.stargateLPStakingPoolID, _amount);
         (
             address token,
             uint256 amount
@@ -306,7 +307,8 @@ contract ArbitrumChef is
         IERC20 LPToken,
         IStargate stargate,
         IERC20 token,
-        uint256 stargateID,
+        uint256 stargateLPStakingPoolID,
+        uint256 stargateRouterPoolID,
         bool stable
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
         poolsArray.push(
@@ -314,10 +316,10 @@ contract ArbitrumChef is
                 LPToken,
                 stargate,
                 token,
-                stargateID,
+                stargateLPStakingPoolID,
+                stargateRouterPoolID,
                 stable
             )
         );
-        LPToken.approve(address(stargate), type(uint256).max);
     }
 }
