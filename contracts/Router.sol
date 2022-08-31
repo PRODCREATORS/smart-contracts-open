@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 
-pragma solidity ^0.8.12;
+pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";

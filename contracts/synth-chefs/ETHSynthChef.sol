@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity >=0.8.9;
+pragma solidity ^0.8.12;
 
 
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
