@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-2
-pragma solidity 0.8.15;
+// SPDX-License-Identifier: BSL 1.1
+pragma solidity ^0.8.12;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";

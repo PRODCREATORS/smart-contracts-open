@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: MIT ddd
-pragma solidity 0.8.15;
+// SPDX-License-Identifier: BSL 1.1
+pragma solidity ^0.8.12;
 
 import "../PausableAccessControl.sol";
 
