@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.12;
-
+pragma solidity 0.8.15;
 
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./BaseSynthChef.sol";
 
@@ -55,23 +53,13 @@ interface ConvexReward {
 }
 
 contract ETHSynthChef is BaseSynthChef {
-    
-    using SafeMath for uint256;
-
     address public router;
     address public factory;
-    address public rewardToken;
-    address public WETH;
     address public convex;
     uint256 public fee;
     uint256 public feeRate = 1e4;
     address public treasury;
-    address private stablecoin;
     Pool[] public poolsArray;
-
-    event Deposit(uint256 amount);
-    event Withdraw(uint256 amount);
-    event Compound(uint256 amountStable);
 
     struct Pool {
         address lp;
@@ -90,58 +78,58 @@ contract ETHSynthChef is BaseSynthChef {
         address _convex,
         uint256 _fee,
         address _treasury,
-        address _rewardToken,
+        address _DEXWrapper,
         address _stablecoin,
-        address _DEXWrapper
-    ) BaseSynthChef(_DEXWrapper) {
+        address[] memory _rewardTokens
+    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
         convex = _convex;
         router = _router;
         factory = _factory;
-        rewardToken = _rewardToken;
-        stablecoin = _stablecoin;
-        
-        WETH = IUniswapV2Router02(router).WETH();
         fee = _fee;
         treasury = _treasury;
     }
 
     receive() external payable {}
 
-    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    function setFactory(address _factory)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         factory = _factory;
     }
 
-    function setRouter(address _router) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    function setRouter(address _router)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         router = _router;
     }
 
-    function deposit(
-        uint256 _amount,
-        address _token,
-        uint256 _poolID
-    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
-        IERC20(_token).transferFrom(msg.sender, address(this), _amount);
-        uint256 amountLPs = addLiquidity(_amount, _token, _poolID);
-        _deposit(amountLPs, _poolID);
-        _compound(_poolID);
-        emit Deposit(amountLPs);
-    }
-
-    function _deposit(uint256 _amount, uint256 _poolID) internal whenNotPaused {
-        if (
-            IERC20(poolsArray[_poolID].lp).allowance(address(this), convex) == 0
-        ) {
-            IERC20(poolsArray[_poolID].lp).approve(convex, type(uint256).max);
+    function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
+        if (IERC20(poolsArray[_pid].lp).allowance(address(this), convex) == 0) {
+            IERC20(poolsArray[_pid].lp).approve(convex, type(uint256).max);
         }
-        Convex(convex).deposit(poolsArray[_poolID].convexID, _amount, true);
+        Convex(convex).deposit(poolsArray[_pid].convexID, _amount, true);
     }
 
-    function convertTokensToProvideLiquidity(
-        uint256 _amount,
+    function _withdrawFromFarm(uint256 _pid, uint256 _amount)
+        internal
+        override
+    {
+        ConvexReward(poolsArray[_pid].convexreward).withdrawAndUnwrap(
+            _amount,
+            false
+        );
+    }
+
+    function _convertTokensToProvideLiquidity(
+        uint256 _pid,
         address _tokenFrom,
-        uint256 _poolID
+        uint256 _amount
     )
-        public
+        internal
         whenNotPaused
         returns (
             address token0,
@@ -150,34 +138,32 @@ contract ETHSynthChef is BaseSynthChef {
             uint256 amount1
         )
     {
-        token0 = address(poolsArray[_poolID].token0);
-        token1 = address(poolsArray[_poolID].token1);
-        amount0 = token0 != _tokenFrom ? _convertTokens(_tokenFrom, token0, amount0) : _amount / 2;
-        amount1 = token1 != _tokenFrom ? _convertTokens(_tokenFrom, token1, amount1) : _amount / 2;
+        token0 = address(poolsArray[_pid].token0);
+        token1 = address(poolsArray[_pid].token1);
+        amount0 = _convertTokens(_tokenFrom, token0, _amount / 2);
+        amount1 = _convertTokens(_tokenFrom, token1, _amount / 2);
     }
 
-    function addLiquidity(
-        uint256 _amount,
+    function _addLiquidity(
+        uint256 _pid,
         address _tokenFrom,
-        uint256 _poolID
-    ) internal whenNotPaused returns (uint256) {
-        uint256 amountLPs;
+        uint256 _amount
+    ) internal override returns (uint256 amountLPs) {
         (
             address token0,
             address token1,
             uint256 amount0,
             uint256 amount1
-        ) = convertTokensToProvideLiquidity(_amount, _tokenFrom, _poolID);
-        address lpPair = poolsArray[_poolID].lp;
+        ) = _convertTokensToProvideLiquidity(_pid, _tokenFrom, _amount);
 
         if (
             IERC20(token0).allowance(
                 address(this),
-                poolsArray[_poolID].curvePool
+                poolsArray[_pid].curvePool
             ) == 0
         ) {
             IERC20(token0).approve(
-                poolsArray[_poolID].curvePool,
+                poolsArray[_pid].curvePool,
                 type(uint256).max
             );
         }
@@ -185,177 +171,75 @@ contract ETHSynthChef is BaseSynthChef {
         if (
             IERC20(token1).allowance(
                 address(this),
-                poolsArray[_poolID].curvePool
+                poolsArray[_pid].curvePool
             ) == 0
         ) {
             IERC20(token1).approve(
-                poolsArray[_poolID].curvePool,
+                poolsArray[_pid].curvePool,
                 type(uint256).max
             );
         }
 
-        amountLPs = Curve(poolsArray[_poolID].curvePool).add_liquidity(
+        amountLPs = Curve(poolsArray[_pid].curvePool).add_liquidity(
             [amount0, amount1],
             0,
             true
         );
-
-        if (IERC20(lpPair).allowance(address(this), convex) < amountLPs) {
-            IERC20(lpPair).approve(convex, type(uint256).max);
-        }
-        return amountLPs;
     }
 
-    function harvest(uint256 _pid) internal whenNotPaused {
+    function _harvest(uint256 _pid) internal override {
         ConvexReward(poolsArray[_pid].convexreward).getReward();
     }
 
-    function compound(uint256 _pid) external onlyRole(ADMIN_ROLE) whenNotPaused  {
-        harvest(_pid);
-        _compound(_pid);
-    }
-
-    function _compound(uint256 _pid) internal whenNotPaused {
-        uint256 amountToken = IERC20(rewardToken).balanceOf(address(this));
-        if (amountToken > 0) {
-            uint256 amountTokenFee = amountToken.mul(fee).div(feeRate);
-            uint256 amountwithfee = amountToken - amountTokenFee;
-            uint256 amountLPs = addLiquidity(amountwithfee, rewardToken, _pid);
-            _deposit(amountLPs, _pid);
-            emit Compound(getBalanceOnFarms(_pid));
-            if (amountTokenFee > 0) {
-                IERC20(rewardToken).transfer(treasury, amountTokenFee);
-            }
-        }
-    }
-
-    function removeLiquidity(
-        uint256 _amount,
-        uint256 _poolID
-    )
+    function _removeLiquidity(uint256 _pid, uint256 _amount)
         internal
-        whenNotPaused
-        returns (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
-        )
+        override
+        returns (TokenAmount[] memory tokenAmounts)
     {
-        token0 = poolsArray[_poolID].token0;
-        token1 = poolsArray[_poolID].token1;
+        tokenAmounts = new TokenAmount[](2);
+        address token0 = poolsArray[_pid].token0;
+        address token1 = poolsArray[_pid].token1;
 
-        uint256[2] memory t;
-        t[0] = 0;
-        t[1] = 0;
-        uint256[2] memory amounts = Curve(poolsArray[_poolID].curvePool)
-            .remove_liquidity(_amount, t, true);
-        amount0 = amounts[0];
-        amount1 = amounts[1];
+        uint256[2] memory amounts = Curve(poolsArray[_pid].curvePool)
+            .remove_liquidity(_amount, [uint256(0), uint256(0)], true);
+
+        tokenAmounts[0] = TokenAmount({token: token0, amount: amounts[0]});
+        tokenAmounts[1] = TokenAmount({token: token1, amount: amounts[1]});
     }
 
-    function withdraw(
-        uint256 _amount,
-        address _toToken,
-        address _to,
-        uint256 _poolID
-    ) public override onlyRole(ADMIN_ROLE) whenNotPaused {
-        ConvexReward(poolsArray[_poolID].convexreward).withdrawAndUnwrap(
-            _amount,
-            true
-        );
-        (
-            address token0,
-            address token1,
-            uint256 amount0,
-            uint256 amount1
-        ) = removeLiquidity(_amount, _poolID);
-        uint256 amountToken = 0;
-        amountToken += token0 != _toToken ? _convertTokens(token0, _toToken, amount0) : amount0;
-        amountToken += token1 != _toToken ? _convertTokens(token1, _toToken, amount1) : amount1;
-
-        IERC20(_toToken).transfer(_to, amountToken);
-        uint256 rewards = IERC20(rewardToken).balanceOf(address(this));
-        if (rewards > 0) {
-            IERC20(rewardToken).transfer(msg.sender, rewards);
-        }
-
-        emit Withdraw(_amount);
-    }
-
-    function getAmountsTokensInLP(uint256 _pid)
-        public
+    function _getTokensInLP(uint256 _pid)
+        internal
         view
-        whenNotPaused 
-        returns (
-            uint256 amount0,
-            uint256 amount1,
-            address token0,
-            address token1
-        )
+        override
+        returns (TokenAmount[] memory tokenAmounts)
     {
-        token0 = poolsArray[_pid].token0;
-        token1 = poolsArray[_pid].token1;
+        tokenAmounts = new TokenAmount[](2);
+        address token0 = poolsArray[_pid].token0;
+        address token1 = poolsArray[_pid].token1;
         uint256 amountLP = ConvexReward(poolsArray[_pid].convexreward)
             .balanceOf(address(this));
-        amount0 = Curve(poolsArray[_pid].curvePool).calc_withdraw_one_coin(
-            amountLP,
-            int128(0)
-        );
-        amount1 = Curve(poolsArray[_pid].curvePool).calc_withdraw_one_coin(
-            amountLP,
-            int128(1)
-        );
+        uint256 amount0 = Curve(poolsArray[_pid].curvePool)
+            .calc_withdraw_one_coin(amountLP, int128(0));
+        uint256 amount1 = Curve(poolsArray[_pid].curvePool)
+            .calc_withdraw_one_coin(amountLP, int128(1));
+        tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
+        tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
     }
 
-    function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
-        public
-        view
+    function setFee(uint256 _fee, uint256 _feeRate)
+        external
+        onlyRole(ADMIN_ROLE)
         whenNotPaused
-        returns (uint256 amountStable)
     {
-        if (_tokenAddress == stablecoin)
-            return _amount;
-        return _previewConvertTokens(_tokenAddress, stablecoin, _amount);
-    }
-
-    function convertStablecoinToToken(address _tokenAddress, uint256 _amountStablecoin)
-        internal
-        view
-        returns (uint256 amountToken)
-    {
-        if (_tokenAddress == stablecoin)
-            return _amountStablecoin;
-        return _previewConvertTokens(stablecoin, _tokenAddress, _amountStablecoin);
-    }
-
-    function getBalanceOnFarms(uint256 _pid)
-        internal
-        view
-        whenNotPaused 
-        returns (uint256 totalAmount)
-    {
-        (
-            uint256 amount0,
-            uint256 amount1,
-            address token0,
-            address token1
-        ) = getAmountsTokensInLP(_pid); //convert amount lps to two token amounts
-        totalAmount += convertTokenToStablecoin(token0, amount0); //convert token's price to stablecoins price
-        totalAmount += convertTokenToStablecoin(token1, amount1); //convert token's price to stablecoins price
-    }
-
-    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) whenNotPaused {
         fee = _fee;
         feeRate = _feeRate;
     }
 
-    function setRewardToken(address _newToken) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(_newToken != address(0), "Invalid address");
-        rewardToken = _newToken;
-    }
-
-    function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) whenNotPaused {
+    function setTreasury(address _treasury)
+        external
+        onlyRole(ADMIN_ROLE)
+        whenNotPaused
+    {
         require(_treasury != address(0), "Invalid treasury address");
         treasury = _treasury;
     }

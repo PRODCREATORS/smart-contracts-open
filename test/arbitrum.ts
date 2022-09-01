@@ -56,10 +56,10 @@ describe("Arbitrum Synth Chef", function () {
     });
     
     it("Compound", async function () {
-        let balanceBeforeCompound = await chef.getBalanceOnFarms(0);
+        let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
         await ethers.provider.send("evm_increaseTime", [3600*24*365]);
         await chef.compound(0);
-        let balanceAfterCompound = await chef.getBalanceOnFarms(0);
+        let balanceAfterCompound = await chef.getBalanceOnFarm(0);
         expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
     });
 

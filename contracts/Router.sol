@@ -2,7 +2,6 @@
 
 pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./PausableAccessControl.sol";
@@ -12,13 +11,13 @@ interface IsynthChef {
     function withdraw(
         uint256 _amount,
         address _token,
-        uint256 _poolID
+        uint256 _pid
     ) external;
 
     function deposit(
         uint256 _amount,
         address _token,
-        uint256 _poolID
+        uint256 _pid
     ) external;
 }
 

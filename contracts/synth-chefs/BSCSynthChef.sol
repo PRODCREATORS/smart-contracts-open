@@ -1,58 +1,9 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.15;
 
-
-import "./BaseSynthChef.sol";
-
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-
-interface IPair {
-    function totalSupply() external view returns (uint256);
-
-    function token0() external view returns (address);
-
-    function token1() external view returns (address);
-
-    function getReserves()
-        external
-        view
-        returns (
-            uint112 reserve0,
-            uint112 reserve1,
-            uint32 blockTimestampLast
-        );
-}
-
-interface IRouter {
-    function addLiquidity(
-        address tokenA,
-        address tokenB,
-        uint256 amountADesired,
-        uint256 amountBDesired,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
-        uint256 deadline
-    )
-        external
-        returns (
-            uint256 amountA,
-            uint256 amountB,
-            uint256 liquidity
-        );
-
-
-    function removeLiquidity(
-        address tokenA,
-        address tokenB,
-        uint256 liquidity,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
-        uint256 deadline
-    ) external returns (uint256 amountA, uint256 amountB);
-}
+import "./BaseSynthChef.sol";
 
 interface IMasterChef {
     struct UserInfo {
@@ -60,16 +11,9 @@ interface IMasterChef {
         uint256 rewardDebt; // Reward debt. See explanation below.
     }
 
-    struct PoolInfo {
-        IERC20 lpToken; // Address of LP token contract.
-        uint256 allocPoint; // How many allocation points assigned to this pool. JOE to distribute per block.
-        uint256 lastRewardTimestamp; // Last block number that JOE distribution occurs.
-        uint256 accJoePerShare; // Accumulated JOE per share, times 1e12. See below.
-    }
+    function CAKE() external returns (IERC20);
 
-    function JOE() external returns (IERC20);
-
-    function poolInfo(uint256 pid) external view returns (IMasterChef.PoolInfo memory);
+    function lpToken(uint256 pid) external view returns (address);
 
     function userInfo(uint256 pid, address user) external view returns (IMasterChef.UserInfo memory);
 
@@ -78,11 +22,47 @@ interface IMasterChef {
     function withdraw(uint256 pid, uint256 amount) external;
 }
 
+interface ISpiritRouter {
+    function WETH() external pure returns (address);
 
-contract AvaxSynthChef is BaseSynthChef {
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+}
+
+interface IPair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+
+    function totalSupply() external view returns (uint);
+}
+
+contract BSCSynthChef is BaseSynthChef {
+
     IMasterChef public chef;
-    IRouter public router;
+    ISpiritRouter public router;
     address public factory;
+    address public WETH;
+
     uint256 public fee;
     uint256 public feeRate = 1e4;
     address public treasury;
@@ -92,74 +72,34 @@ contract AvaxSynthChef is BaseSynthChef {
      */
     constructor(
         IMasterChef _chef,
-        IRouter _router,
+        ISpiritRouter _router,
         address _factory,
         uint256 _fee,
         address _treasury,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
+    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens){
         chef = _chef;
         router = _router;
         factory = _factory;
+        WETH = router.WETH();
         fee = _fee;
         treasury = _treasury;
     }
 
-    receive() external payable {}
-
-    /**
-     * @dev function to set Synth Factory address
-     * @param _factory SynthFactory address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) {
-        factory = _factory;
-    }
-
-    /**
-     * @dev function to set Synth Chef address
-     * @param _chef SynthChef address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setChef(IMasterChef _chef) external onlyRole(ADMIN_ROLE) {
-        chef = _chef;
-    }
-
-    /**
-     * @dev function to set Synth Chef address
-     * @param _router router address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setRouter(IRouter _router) external onlyRole(ADMIN_ROLE) {
-        router = _router;
-    }
-
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-        address lpPair = address(farm.lpToken);
+        address lpPair = chef.lpToken(_pid);
         if (IERC20(lpPair).allowance(address(this), address(chef)) < _amount) {
             IERC20(lpPair).approve(address(chef), type(uint256).max);
         }
         chef.deposit(_pid, _amount);
     }
 
-    function _withdrawFromFarm(uint256 _pid, uint256 _amount)
-        internal
-        override
-    {
+    function _withdrawFromFarm(uint256 _pid, uint256 _amount) internal override {
         chef.withdraw(_pid, _amount);
     }
+
 
     /**
      * @dev function that convert tokens in lp token
@@ -177,10 +117,10 @@ contract AvaxSynthChef is BaseSynthChef {
             uint256 amount1
         )
     {
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-        address lpPair = address(farm.lpToken);
+        address lpPair = chef.lpToken(_pid);
         token0 = IPair(lpPair).token0();
         token1 = IPair(lpPair).token1();
+
         amount0 = _convertTokens(_tokenFrom, token0, _amount / 2);
         amount1 = _convertTokens(_tokenFrom, token1, _amount / 2);
     }
@@ -211,6 +151,7 @@ contract AvaxSynthChef is BaseSynthChef {
         if (IERC20(token1).allowance(address(this), address(router)) == 0) {
             IERC20(token1).approve(address(router), type(uint256).max);
         }
+
         (, , amountLPs) = router.addLiquidity(
             token0,
             token1,
@@ -230,29 +171,21 @@ contract AvaxSynthChef is BaseSynthChef {
         _depositToFarm(_pid, 0);
     }
 
-    /**
-     * @dev function for removing LP token
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
+
     function _removeLiquidity(uint256 _pid, uint256 _amount)
         internal
         override
         returns (TokenAmount[] memory tokenAmounts)
     {
         tokenAmounts = new TokenAmount[](2);
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-        address lpPair = address(farm.lpToken);
+        address lpPair = chef.lpToken(_pid);
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
 
-        if (
-            IERC20(lpPair).allowance(address(this), address(router)) < _amount
-        ) {
+        if (IERC20(lpPair).allowance(address(this), address(router)) < _amount) {
             IERC20(lpPair).approve(address(router), type(uint256).max);
         }
+
         (uint256 amount0, uint256 amount1) = router.removeLiquidity(
             token0,
             token1,
@@ -267,25 +200,33 @@ contract AvaxSynthChef is BaseSynthChef {
     }
 
     /**
-     * @dev A read-only function that calculates how many lp tokenAmounts will user get
+     * @dev function for removing LP token
+     *
+     * Requirements:
+     *
+     * - the caller must have admin role.
      */
     function _getTokensInLP(uint256 _pid)
         internal
         view
         override
-        returns (TokenAmount[] memory tokenAmounts)
+        returns (
+            TokenAmount[] memory tokenAmounts
+        )
     {
         tokenAmounts = new TokenAmount[](2);
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-        IMasterChef.UserInfo memory user = chef.userInfo(_pid, address(this));
-        address lpPair = address(farm.lpToken);
+        IMasterChef.UserInfo memory user = chef.userInfo(
+            _pid,
+            address(this)
+        );
+        address lpPair = IMasterChef(chef).lpToken(_pid);
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
         (uint256 reserve0, uint256 reserve1, ) = IPair(lpPair).getReserves();
         uint256 totalSupply = IPair(lpPair).totalSupply();
         uint256 amountLP = user.amount;
-        uint256 amount0 = (amountLP * reserve0) / totalSupply;
-        uint256 amount1 = (amountLP * reserve1) / totalSupply;
+        uint256 amount0 = amountLP * reserve0 / totalSupply;
+        uint256 amount1 = amountLP * reserve1 / totalSupply;
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
     }
@@ -297,10 +238,7 @@ contract AvaxSynthChef is BaseSynthChef {
      *
      * - the caller must have admin role.
      */
-    function setFee(uint256 _fee, uint256 _feeRate)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
         feeRate = _feeRate;
     }
@@ -325,20 +263,17 @@ contract AvaxSynthChef is BaseSynthChef {
         view
         returns (uint256)
     {
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-
-        address lpPair = address(farm.lpToken);
+        address lpPair = chef.lpToken(_pid);
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
-        (uint112 _reserve0, uint112 _reserve1, ) = IPair(lpPair)
-            .getReserves();
+        (uint112 _reserve0, uint112 _reserve1, ) = IPair(lpPair).getReserves();
         uint256 amount0 = convertStablecoinToToken(token0, _amount / 2);
         uint256 amount1 = convertStablecoinToToken(token1, _amount / 2);
         uint256 _totalSupply = IPair(lpPair).totalSupply();
 
         uint256 liquidity = Math.min(
-            (amount0 * _totalSupply) / _reserve0,
-            (amount1 * _totalSupply) / _reserve1
+            amount0 * _totalSupply / _reserve0,
+            amount1 * _totalSupply / _reserve1
         );
 
         return liquidity;

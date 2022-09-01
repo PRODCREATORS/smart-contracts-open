@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.12;
+pragma solidity 0.8.15;
 
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntangleSynth.sol";
 import "./interfaces/ISynthChef.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract EntangleDEXOnDemand is AccessControl {
-    using SafeMath for uint256;
-
     EntangleSynth public synth; //synth token
     EntangleSynthFactory public factory; //synth factory
     IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
@@ -27,12 +24,12 @@ contract EntangleDEXOnDemand is AccessControl {
      */
     constructor(
         uint256 _synth,
-        uint256 _poolID,
+        uint256 _pid,
         EntangleSynthFactory _factory,
         ISynthChef _chef
     ) {
         factory = _factory;
-        poolID = _poolID;
+        poolID = _pid;
         synth = EntangleSynth(factory.getSynth(_synth));
         opToken = IERC20Metadata(address(synth.opToken()));
         chef = _chef;

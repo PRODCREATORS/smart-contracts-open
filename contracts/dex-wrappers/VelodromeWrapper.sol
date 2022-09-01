@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSL 1.1
-pragma solidity ^0.8.12;
+pragma solidity 0.8.15;
 
 import "../interfaces/IEntangleDEXWrapper.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
