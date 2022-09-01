@@ -56,9 +56,6 @@ contract ETHSynthChef is BaseSynthChef {
     address public router;
     address public factory;
     address public convex;
-    uint256 public fee;
-    uint256 public feeRate = 1e4;
-    address public treasury;
     Pool[] public poolsArray;
 
     struct Pool {
@@ -76,8 +73,6 @@ contract ETHSynthChef is BaseSynthChef {
         address _router,
         address _factory,
         address _convex,
-        uint256 _fee,
-        address _treasury,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
@@ -85,8 +80,6 @@ contract ETHSynthChef is BaseSynthChef {
         convex = _convex;
         router = _router;
         factory = _factory;
-        fee = _fee;
-        treasury = _treasury;
     }
 
     receive() external payable {}
@@ -224,24 +217,6 @@ contract ETHSynthChef is BaseSynthChef {
             .calc_withdraw_one_coin(amountLP, int128(1));
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
-    }
-
-    function setFee(uint256 _fee, uint256 _feeRate)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        fee = _fee;
-        feeRate = _feeRate;
-    }
-
-    function setTreasury(address _treasury)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        require(_treasury != address(0), "Invalid treasury address");
-        treasury = _treasury;
     }
 
     function addPool(

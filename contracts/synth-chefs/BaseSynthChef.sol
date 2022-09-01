@@ -66,6 +66,17 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         emit Withdraw(_pid, _amount);
     }
 
+    function compound(uint256 _pid) public onlyRole(ADMIN_ROLE) whenNotPaused {
+        _harvest(_pid);
+        for(uint i = 0; i < rewardTokens.length; i++) {
+            uint256 balance = IERC20(rewardTokens[i]).balanceOf(address(this));
+            if (balance > 0) {
+                this.deposit(_pid, address(rewardTokens[i]), balance);
+            }
+        }
+        emit Compound(_pid, getBalanceOnFarm(_pid));
+    }
+
     function convertTokenToStablecoin(address _tokenAddress, uint256 _amount)
         internal
         view
@@ -96,17 +107,6 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
                 tokens[i].amount
             );
         }
-    }
-
-    function compound(uint256 _pid) public onlyRole(ADMIN_ROLE) whenNotPaused {
-        _harvest(_pid);
-        for(uint i = 0; i < rewardTokens.length; i++) {
-            uint256 balance = IERC20(rewardTokens[i]).balanceOf(address(this));
-            if (balance > 0) {
-                this.deposit(_pid, address(rewardTokens[i]), balance);
-            }
-        }
-        emit Compound(_pid, getBalanceOnFarm(_pid));
     }
 
     function _harvest(uint256 _pid) internal virtual;

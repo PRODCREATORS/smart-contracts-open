@@ -45,9 +45,6 @@ interface IStargatePool {
 contract ArbitrumSynthShef is BaseSynthChef {
     IStargateRouter public stargateRouter;
 
-    uint256 public fee;
-    uint256 public feeRate = 1e4;
-    address public treasury;
     Pool[] public poolsArray;
 
     struct Pool {
@@ -60,15 +57,11 @@ contract ArbitrumSynthShef is BaseSynthChef {
 
     constructor(
         IStargateRouter _stargateRouter,
-        uint256 _fee,
-        address _treasury,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
     ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
         stargateRouter = _stargateRouter;
-        fee = _fee;
-        treasury = _treasury;
     }
 
     receive() external payable {}
@@ -171,24 +164,6 @@ contract ArbitrumSynthShef is BaseSynthChef {
             .userInfo(pool.stargateLPStakingPoolID, address(this))
             .amount;
         tokenAmounts[0] = TokenAmount({amount: amount, token: token});
-    }
-
-    function setFee(uint256 _fee, uint256 _feeRate)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        fee = _fee;
-        feeRate = _feeRate;
-    }
-
-    function setTreasury(address _treasury)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        require(_treasury != address(0), "Invalid treasury address");
-        treasury = _treasury;
     }
 
     function addPool(

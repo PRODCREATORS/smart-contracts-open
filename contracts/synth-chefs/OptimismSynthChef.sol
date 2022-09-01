@@ -55,10 +55,6 @@ interface IVelodromeRouter {
 
 contract OptimismSynthChef is BaseSynthChef {
     IVelodromeRouter public velodromeRouter;
-
-    uint256 public fee;
-    uint256 public feeRate = 1e4;
-    address public treasury;
     Pool[] public poolsArray;
 
     struct Pool {
@@ -71,15 +67,11 @@ contract OptimismSynthChef is BaseSynthChef {
 
     constructor(
         IVelodromeRouter _velodromeRouter,
-        uint256 _fee,
-        address _treasury,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
     ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
         velodromeRouter = _velodromeRouter;
-        fee = _fee;
-        treasury = _treasury;
     }
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
@@ -216,24 +208,6 @@ contract OptimismSynthChef is BaseSynthChef {
             );
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
-    }
-
-    function setFee(uint256 _fee, uint256 _feeRate)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        fee = _fee;
-        feeRate = _feeRate;
-    }
-
-    function setTreasury(address _treasury)
-        external
-        onlyRole(ADMIN_ROLE)
-        whenNotPaused
-    {
-        require(_treasury != address(0), "Invalid treasury address");
-        treasury = _treasury;
     }
 
     function addPool(

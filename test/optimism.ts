@@ -23,8 +23,7 @@ describe("Optimism Synth Chef", function () {
         await weth.deposit({ value: ethers.utils.parseEther("1.0") });
         console.log("WETH balance:", await weth.balanceOf(owner.getAddress()));
         const ChefFactory = (await ethers.getContractFactory("OptimismSynthChef")) as OptimismSynthChef__factory;
-        chef = (await ChefFactory.deploy("0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9", 100, 
-                await owner.getAddress(), 
+        chef = (await ChefFactory.deploy("0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9",
                 velodromeWrapper.address, "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", ["0x3c8B650257cFb5f272f799F5e2b4e65093a11a05"])) as OptimismSynthChef;
         await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress());
         await chef.addPool("0xd16232ad60188b68076a235c65d692090caba155",

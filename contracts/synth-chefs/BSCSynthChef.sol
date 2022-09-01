@@ -60,14 +60,10 @@ contract BSCSynthChef is BaseSynthChef {
     ISpiritRouter public router;
     address public factory;
 
-    uint256 public fee;
-    uint256 public feeRate = 1e4;
-
     constructor(
         IMasterChef _chef,
         ISpiritRouter _router,
         address _factory,
-        uint256 _fee,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
@@ -75,7 +71,6 @@ contract BSCSynthChef is BaseSynthChef {
         chef = _chef;
         router = _router;
         factory = _factory;
-        fee = _fee;
     }
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
@@ -219,17 +214,5 @@ contract BSCSynthChef is BaseSynthChef {
         uint256 amount1 = amountLP * reserve1 / totalSupply;
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
-    }
-
-    /**
-     * @dev function for setting fee
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setFee(uint256 _fee, uint256 _feeRate) external onlyRole(ADMIN_ROLE) {
-        fee = _fee;
-        feeRate = _feeRate;
     }
 }

@@ -82,37 +82,16 @@ interface IMasterChef {
 contract AvaxSynthChef is BaseSynthChef {
     IMasterChef public chef;
     IRouter public router;
-    address public factory;
-    uint256 public fee;
-    uint256 public feeRate = 1e4;
 
     constructor(
         IMasterChef _chef,
         IRouter _router,
-        address _factory,
-        uint256 _fee,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
     ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
         chef = _chef;
         router = _router;
-        factory = _factory;
-        fee = _fee;
-    }
-
-    receive() external payable {}
-
-    /**
-     * @dev function to set Synth Factory address
-     * @param _factory SynthFactory address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setFactory(address _factory) external onlyRole(ADMIN_ROLE) {
-        factory = _factory;
     }
 
     /**
@@ -282,20 +261,5 @@ contract AvaxSynthChef is BaseSynthChef {
         uint256 amount1 = (amountLP * reserve1) / totalSupply;
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
-    }
-
-    /**
-     * @dev function for setting fee
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setFee(uint256 _fee, uint256 _feeRate)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
-        fee = _fee;
-        feeRate = _feeRate;
     }
 }
