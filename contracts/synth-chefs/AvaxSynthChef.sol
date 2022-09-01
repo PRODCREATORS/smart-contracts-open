@@ -85,17 +85,12 @@ contract AvaxSynthChef is BaseSynthChef {
     address public factory;
     uint256 public fee;
     uint256 public feeRate = 1e4;
-    address public treasury;
 
-    /**
-     * @dev Sets the values for `chef`, `router`,`factory`,`rewatdToken`,`WETH`,`fee` and `treasury`.
-     */
     constructor(
         IMasterChef _chef,
         IRouter _router,
         address _factory,
         uint256 _fee,
-        address _treasury,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens
@@ -104,7 +99,6 @@ contract AvaxSynthChef is BaseSynthChef {
         router = _router;
         factory = _factory;
         fee = _fee;
-        treasury = _treasury;
     }
 
     receive() external payable {}
@@ -303,44 +297,5 @@ contract AvaxSynthChef is BaseSynthChef {
     {
         fee = _fee;
         feeRate = _feeRate;
-    }
-
-    /**
-     * @dev function for setting treasury
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function setTreasury(address _treasury) external onlyRole(ADMIN_ROLE) {
-        require(_treasury != address(0), "Invalid treasury address");
-        treasury = _treasury;
-    }
-
-    /**
-     * @dev A read-only function that calculates how many lp tokens will user get for usd
-     */
-    function convertStableToLp(uint256 _pid, uint256 _amount)
-        external
-        view
-        returns (uint256)
-    {
-        IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
-
-        address lpPair = address(farm.lpToken);
-        address token0 = IPair(lpPair).token0();
-        address token1 = IPair(lpPair).token1();
-        (uint112 _reserve0, uint112 _reserve1, ) = IPair(lpPair)
-            .getReserves();
-        uint256 amount0 = convertStablecoinToToken(token0, _amount / 2);
-        uint256 amount1 = convertStablecoinToToken(token1, _amount / 2);
-        uint256 _totalSupply = IPair(lpPair).totalSupply();
-
-        uint256 liquidity = Math.min(
-            (amount0 * _totalSupply) / _reserve0,
-            (amount1 * _totalSupply) / _reserve1
-        );
-
-        return liquidity;
     }
 }
