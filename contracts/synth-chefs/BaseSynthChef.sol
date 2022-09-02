@@ -14,6 +14,10 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     IEntangleDEXWrapper public DEXWrapper;
     address public stablecoin;
     address[] internal rewardTokens;
+    address public feeCollector;
+
+    uint256 fee;
+    uint256 feeRate = 1000000;
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -22,10 +26,18 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     event Withdraw(uint256 indexed pid, uint256 amount);
     event Compound(uint256 indexed pid, uint256 amountStable);
 
-    constructor(address _DEXWrapper, address _stablecoin, address[] memory _rewardTokens) {
+    constructor(
+        address _DEXWrapper,
+        address _stablecoin,
+        address[] memory _rewardTokens,
+        uint256 _fee,
+        address _feeCollector
+    ) {
         DEXWrapper = IEntangleDEXWrapper(_DEXWrapper);
         stablecoin = _stablecoin;
         rewardTokens = _rewardTokens;
+        fee = _fee;
+        feeCollector = _feeCollector;
 
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
@@ -68,10 +80,16 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
 
     function compound(uint256 _pid) public onlyRole(ADMIN_ROLE) whenNotPaused {
         _harvest(_pid);
-        for(uint i = 0; i < rewardTokens.length; i++) {
+        for (uint i = 0; i < rewardTokens.length; i++) {
             uint256 balance = IERC20(rewardTokens[i]).balanceOf(address(this));
             if (balance > 0) {
-                this.deposit(_pid, address(rewardTokens[i]), balance);
+                uint256 feeAmount = (balance * fee) / feeRate;
+                this.deposit(
+                    _pid,
+                    address(rewardTokens[i]),
+                    balance - feeAmount
+                );
+                IERC20(rewardTokens[i]).transfer(feeCollector, feeAmount);
             }
         }
         emit Compound(_pid, getBalanceOnFarm(_pid));
@@ -131,7 +149,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         view
         virtual
         returns (TokenAmount[] memory tokens);
-    
+
     function _convertTokens(
         address from,
         address to,
@@ -152,5 +170,30 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         uint256 amount
     ) internal view returns (uint256) {
         return DEXWrapper.previewConvert(from, to, amount);
+    }
+
+    function setFee(uint256 _fee) public onlyRole(ADMIN_ROLE) {
+        fee = _fee;
+    }
+
+    function setFeeCollector(address _feeCollector)
+        public
+        onlyRole(ADMIN_ROLE)
+    {
+        feeCollector = _feeCollector;
+    }
+
+    function setRewardTokens(address[] memory _rewardTokens)
+        public
+        onlyRole(ADMIN_ROLE)
+    {
+        rewardTokens = _rewardTokens;
+    }
+
+    function setDEXWrapper(IEntangleDEXWrapper _DEXWrapper)
+        public
+        onlyRole(ADMIN_ROLE)
+    {
+        DEXWrapper = _DEXWrapper;
     }
 }

@@ -5,7 +5,7 @@ import "./Lender.sol";
 import "./PausableAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-interface ISynthV1 is IERC20Metadata {
+interface ISynth is IERC20Metadata {
     function convertSynthToOp(uint256 synthAmount) external view returns (uint256 opAmount);
     function convertOpToSynth(uint256 opAmount) external view returns (uint256 synthAmount);
 }
@@ -23,7 +23,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
     event Rebalancing(address token, uint256 amount);
 
     struct Synth {
-        ISynthV1 synth;
+        ISynth synth;
         uint8 pid;
         bool isActive;
     }
@@ -62,7 +62,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
     }
 
     function add(
-        ISynthV1 _synth,
+        ISynth _synth,
         uint8 _pid
     ) public onlyRole(ADMIN) whenNotPaused {
         require(synths[_pid].isActive == false, "Already added");

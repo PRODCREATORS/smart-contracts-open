@@ -69,8 +69,10 @@ contract OptimismSynthChef is BaseSynthChef {
         IVelodromeRouter _velodromeRouter,
         address _DEXWrapper,
         address _stablecoin,
-        address[] memory _rewardTokens
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens) {
+        address[] memory _rewardTokens,
+        uint256 _fee,
+        address _feeCollector
+    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector) {
         velodromeRouter = _velodromeRouter;
     }
 
