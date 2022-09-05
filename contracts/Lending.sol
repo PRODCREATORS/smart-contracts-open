@@ -5,9 +5,12 @@ pragma solidity 0.8.15;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ILender.sol";
 import "./PausableAccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 
 contract Lending is PausableAccessControl {
+    using SafeERC20 for IERC20;
+
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant BORROWER_ROLE = keccak256("BORROWER");
 
@@ -46,7 +49,7 @@ contract Lending is PausableAccessControl {
 
     function repayLoan(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan storage loan = loans[loanId];
-        loan.token.transferFrom(msg.sender, address(loan.lender), loan.amount);
+        loan.token.safeTransferFrom(msg.sender, address(loan.lender), loan.amount);
         emit RepayLoan(loan.token, loan.amount, address(loan.lender));
         delete loans[loanId];
     }

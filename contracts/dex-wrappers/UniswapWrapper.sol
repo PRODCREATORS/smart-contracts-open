@@ -5,8 +5,11 @@ import "../interfaces/IEntangleDEXWrapper.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract UniswapWrapper is IEntangleDEXWrapper {
+    using SafeERC20 for IERC20;
+    
     IUniswapV2Router01 public router;
     IUniswapV2Factory public factory;
     address public WETH;
@@ -32,9 +35,9 @@ contract UniswapWrapper is IEntangleDEXWrapper {
     }
 
     function convert(address from, address to, uint256 amount) external returns(uint256 receivedAmount) {
-        IERC20(from).transferFrom(msg.sender, address(this), amount);
+        IERC20(from).safeTransferFrom(msg.sender, address(this), amount);
         if (IERC20(from).allowance(address(this), address(router)) < amount) {
-            IERC20(from).approve(address(router), type(uint256).max);
+            IERC20(from).safeIncreaseAllowance(address(router), type(uint256).max);
         }
         uint256[] memory amounts = router.swapExactTokensForTokens(amount, 1, _getSwapPath(from, to), msg.sender, block.timestamp);
         receivedAmount = amounts[amounts.length - 1];

@@ -7,8 +7,13 @@ import "./EntangleSynthFactory.sol";
 import "./EntangleSynth.sol";
 import "./interfaces/ISynthChef.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract EntangleDEXOnDemand is AccessControl {
+    using SafeERC20 for IERC20Metadata;
+    using SafeERC20 for IERC20;
+    using SafeERC20 for EntangleSynth;
+
     EntangleSynth public synth; //synth token
     EntangleSynthFactory public factory; //synth factory
     IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
@@ -38,8 +43,8 @@ contract EntangleDEXOnDemand is AccessControl {
         _setRoleAdmin(BUYER, ADMIN_ROLE);
         _setupRole(OWNER_ROLE, msg.sender);
 
-        opToken.approve(address(chef), type(uint256).max);
-        synth.approve(address(chef), type(uint256).max);
+        opToken.safeIncreaseAllowance(address(chef), type(uint256).max);
+        synth.safeIncreaseAllowance(address(chef), type(uint256).max);
     }
 
     /**
@@ -52,7 +57,7 @@ contract EntangleDEXOnDemand is AccessControl {
      */
     function buy(uint256 _amount) external onlyRole(BUYER) {
         uint256 amountSynth = synth.convertOpAmountToSynthAmount(_amount);
-        opToken.transferFrom(msg.sender, address(this), _amount);
+        opToken.safeTransferFrom(msg.sender, address(this), _amount);
         chef.deposit(
             _amount,
             address(opToken),

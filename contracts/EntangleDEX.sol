@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "./Lender.sol";
 import "./PausableAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface ISynth is IERC20Metadata {
     function convertSynthToOp(uint256 synthAmount) external view returns (uint256 opAmount);
@@ -11,6 +12,10 @@ interface ISynth is IERC20Metadata {
 }
 
 contract EntangleDEX is PausableAccessControl, Lender {
+    using SafeERC20 for IERC20Metadata;
+    using SafeERC20 for IERC20;
+    using SafeERC20 for ISynth;
+
     IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
 
     uint256 public fee;
@@ -92,9 +97,9 @@ contract EntangleDEX is PausableAccessControl, Lender {
         uint256 fee_ = _amount * fee / feeRate;
         _amount -= fee_;
         synthAmount = synth.synth.convertOpToSynth(_amount);
-        opToken.transferFrom(msg.sender, address(this), _amount);
-        opToken.transfer(feeCollector, fee_);
-        synth.synth.transfer(msg.sender, synthAmount);
+        opToken.safeTransferFrom(msg.sender, address(this), _amount);
+        opToken.safeTransfer(feeCollector, fee_);
+        synth.synth.safeTransfer(msg.sender, synthAmount);
     }
 
     /**
@@ -118,13 +123,13 @@ contract EntangleDEX is PausableAccessControl, Lender {
         opTokenAmount = synth.synth.convertSynthToOp(_amount);
         uint256 fee_ = opTokenAmount * fee / feeRate;
         opTokenAmount = opTokenAmount - fee_;
-        synth.synth.transferFrom(
+        synth.synth.safeTransferFrom(
             msg.sender,
             address(this),
             _amount
         );
-        opToken.transfer(feeCollector, fee_);
-        opToken.transfer(msg.sender, opTokenAmount);
+        opToken.safeTransfer(feeCollector, fee_);
+        opToken.safeTransfer(msg.sender, opTokenAmount);
     }
 
     /**
@@ -141,7 +146,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
             opToken.balanceOf(address(this)) >= _amount,
             "Not enough opToken to withdraw"
         );
-        opToken.transfer(to, _amount);
+        opToken.safeTransfer(to, _amount);
     }
 
     /**

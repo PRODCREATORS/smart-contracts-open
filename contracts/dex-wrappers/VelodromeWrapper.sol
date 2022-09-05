@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "../interfaces/IEntangleDEXWrapper.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IVelodromeRouter {
 
@@ -65,6 +66,8 @@ interface IPair {
 }
 
 contract VelodromeWrapper is IEntangleDEXWrapper {
+    using SafeERC20 for IERC20;
+    
     IVelodromeRouter public router;
     IVelodromeFactory public factory;
     address public WETH;
@@ -107,9 +110,9 @@ contract VelodromeWrapper is IEntangleDEXWrapper {
     }
 
     function convert(address from, address to, uint256 amount) external returns(uint256 receivedAmount) {
-        IERC20(from).transferFrom(msg.sender, address(this), amount);
+        IERC20(from).safeTransferFrom(msg.sender, address(this), amount);
         if (IERC20(from).allowance(address(this), address(router)) < amount) {
-            IERC20(from).approve(address(router), type(uint256).max);
+            IERC20(from).safeIncreaseAllowance(address(router), type(uint256).max);
         }
         uint256[] memory amounts = router.swapExactTokensForTokens(amount, 1, _getSwapRoutes(from, to), msg.sender, block.timestamp);
         receivedAmount = amounts[amounts.length - 1];

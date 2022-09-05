@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BaseSynthChef.sol";
 
 interface IGauge {
@@ -54,6 +55,8 @@ interface IVelodromeRouter {
 }
 
 contract OptimismSynthChef is BaseSynthChef {
+    using SafeERC20 for IERC20;
+
     IVelodromeRouter public velodromeRouter;
     Pool[] public poolsArray;
 
@@ -81,7 +84,7 @@ contract OptimismSynthChef is BaseSynthChef {
         if (
             pool.LPToken.allowance(address(this), address(pool.gauge)) < _amount
         ) {
-            pool.LPToken.approve(address(pool.gauge), type(uint256).max);
+            pool.LPToken.safeIncreaseAllowance(address(pool.gauge), type(uint256).max);
         }
         pool.gauge.deposit(_amount, 0);
     }
@@ -130,14 +133,14 @@ contract OptimismSynthChef is BaseSynthChef {
             IERC20(token0).allowance(address(this), address(velodromeRouter)) <
             amount0
         ) {
-            IERC20(token0).approve(address(velodromeRouter), type(uint256).max);
+            IERC20(token0).safeIncreaseAllowance(address(velodromeRouter), type(uint256).max);
         }
 
         if (
             IERC20(token1).allowance(address(this), address(velodromeRouter)) <
             amount1
         ) {
-            IERC20(token1).approve(address(velodromeRouter), type(uint256).max);
+            IERC20(token1).safeIncreaseAllowance(address(velodromeRouter), type(uint256).max);
         }
 
         (, , amountLPs) = velodromeRouter.addLiquidity(
@@ -171,7 +174,7 @@ contract OptimismSynthChef is BaseSynthChef {
             pool.LPToken.allowance(address(this), address(velodromeRouter)) <
             _amount
         ) {
-            pool.LPToken.approve(address(velodromeRouter), type(uint256).max);
+            pool.LPToken.safeIncreaseAllowance(address(velodromeRouter), type(uint256).max);
         }
         uint256[2] memory t;
         t[0] = 0;

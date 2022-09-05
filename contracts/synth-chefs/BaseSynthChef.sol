@@ -4,8 +4,12 @@ pragma solidity 0.8.15;
 import "../Lender.sol";
 import "../PausableAccessControl.sol";
 import "../interfaces/IEntangleDEXWrapper.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "hardhat/console.sol";
 
 abstract contract BaseSynthChef is PausableAccessControl, Lender {
+    using SafeERC20 for IERC20;
+
     struct TokenAmount {
         uint256 amount;
         address token;
@@ -52,7 +56,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         uint256 _amount
     ) public onlyRole(ADMIN_ROLE) whenNotPaused {
         if (msg.sender != address(this))
-            IERC20(_tokenFrom).transferFrom(msg.sender, address(this), _amount);
+            IERC20(_tokenFrom).safeTransferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = _addLiquidity(_pid, _tokenFrom, _amount);
         _depositToFarm(_pid, amountLPs);
         emit Deposit(_pid, amountLPs);
@@ -74,7 +78,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
                 tokens[i].amount
             );
         }
-        IERC20(_toToken).transfer(_to, tokenAmount);
+        IERC20(_toToken).safeTransfer(_to, tokenAmount);
         emit Withdraw(_pid, _amount);
     }
 
@@ -89,7 +93,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
                     address(rewardTokens[i]),
                     balance - feeAmount
                 );
-                IERC20(rewardTokens[i]).transfer(feeCollector, feeAmount);
+                IERC20(rewardTokens[i]).safeTransfer(feeCollector, feeAmount);
             }
         }
         emit Compound(_pid, getBalanceOnFarm(_pid));
@@ -159,7 +163,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         if (
             IERC20(from).allowance(address(this), address(DEXWrapper)) < amount
         ) {
-            IERC20(from).approve(address(DEXWrapper), type(uint256).max);
+            IERC20(from).safeIncreaseAllowance(address(DEXWrapper), type(uint256).max);
         }
         return DEXWrapper.convert(from, to, amount);
     }

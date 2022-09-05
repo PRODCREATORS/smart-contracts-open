@@ -6,6 +6,7 @@ import "./BaseSynthChef.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IPair {
     function totalSupply() external view returns (uint256);
@@ -80,6 +81,8 @@ interface IMasterChef {
 
 
 contract AvaxSynthChef is BaseSynthChef {
+    using SafeERC20 for IERC20;
+
     IMasterChef public chef;
     IRouter public router;
 
@@ -124,7 +127,7 @@ contract AvaxSynthChef is BaseSynthChef {
         IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
         address lpPair = address(farm.lpToken);
         if (IERC20(lpPair).allowance(address(this), address(chef)) < _amount) {
-            IERC20(lpPair).approve(address(chef), type(uint256).max);
+            IERC20(lpPair).safeIncreaseAllowance(address(chef), type(uint256).max);
         }
         chef.deposit(_pid, _amount);
     }
@@ -180,11 +183,11 @@ contract AvaxSynthChef is BaseSynthChef {
         ) = _convertTokensToProvideLiquidity(_pid, _tokenFrom, _amount);
 
         if (IERC20(token0).allowance(address(this), address(router)) == 0) {
-            IERC20(token0).approve(address(router), type(uint256).max);
+            IERC20(token0).safeIncreaseAllowance(address(router), type(uint256).max);
         }
 
         if (IERC20(token1).allowance(address(this), address(router)) == 0) {
-            IERC20(token1).approve(address(router), type(uint256).max);
+            IERC20(token1).safeIncreaseAllowance(address(router), type(uint256).max);
         }
         (, , amountLPs) = router.addLiquidity(
             token0,
@@ -226,7 +229,7 @@ contract AvaxSynthChef is BaseSynthChef {
         if (
             IERC20(lpPair).allowance(address(this), address(router)) < _amount
         ) {
-            IERC20(lpPair).approve(address(router), type(uint256).max);
+            IERC20(lpPair).safeIncreaseAllowance(address(router), type(uint256).max);
         }
         (uint256 amount0, uint256 amount1) = router.removeLiquidity(
             token0,

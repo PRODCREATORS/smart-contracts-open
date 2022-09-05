@@ -5,8 +5,11 @@ pragma solidity 0.8.15;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Lender.sol";
 import "./PausableAccessControl.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Pool is PausableAccessControl {
+    using SafeERC20 for IERC20;
+    
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant DEPOSITER_ROLE = keccak256("DEPOSITER");
 
@@ -22,12 +25,12 @@ contract Pool is PausableAccessControl {
     event Withdraw(uint256 amount);
 
     function depositToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
-        token.transferFrom(msg.sender, address(this), amount);
+        token.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposit(amount);
     }
 
     function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
-        token.transfer(msg.sender, amount);
+        token.safeTransfer(msg.sender, amount);
         emit Withdraw(amount);
     }
 

@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BaseSynthChef.sol";
 
 interface IStargate {
@@ -42,7 +43,9 @@ interface IStargatePool {
     function balanceOf(address _user) external view returns (uint256);
 }
 
-contract ArbitrumSynthShef is BaseSynthChef {
+contract ArbitrumSynthChef is BaseSynthChef {
+    using SafeERC20 for IERC20;
+
     IStargateRouter public stargateRouter;
 
     Pool[] public poolsArray;
@@ -74,7 +77,7 @@ contract ArbitrumSynthShef is BaseSynthChef {
             pool.LPToken.allowance(address(this), address(pool.stargate)) <
             _amount
         ) {
-            pool.LPToken.approve(address(pool.stargate), type(uint256).max);
+            pool.LPToken.safeIncreaseAllowance(address(pool.stargate), type(uint256).max);
         }
         pool.stargate.deposit(pool.stargateLPStakingPoolID, _amount);
     }
@@ -113,7 +116,7 @@ contract ArbitrumSynthShef is BaseSynthChef {
             IERC20(token).allowance(address(this), address(stargateRouter)) <
             amount
         ) {
-            IERC20(token).approve(address(stargateRouter), type(uint256).max);
+            IERC20(token).safeIncreaseAllowance(address(stargateRouter), type(uint256).max);
         }
         uint256 liquidityAmount = pool.LPToken.balanceOf(address(this));
         stargateRouter.addLiquidity(
@@ -142,7 +145,7 @@ contract ArbitrumSynthShef is BaseSynthChef {
             pool.LPToken.allowance(address(this), address(stargateRouter)) <
             _amount
         ) {
-            pool.LPToken.approve(address(stargateRouter), type(uint256).max);
+            pool.LPToken.safeIncreaseAllowance(address(stargateRouter), type(uint256).max);
         }
         uint256 amount = stargateRouter.instantRedeemLocal(
             uint16(pool.stargateRouterPoolID),

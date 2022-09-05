@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./PausableAccessControl.sol";
 import "./interfaces/IETHDEXV1.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IsynthChef {
     function withdraw(
@@ -41,6 +42,9 @@ interface IBridge {
 }
 
 contract Router is PausableAccessControl {
+    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Metadata;
+
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
 
@@ -100,12 +104,12 @@ contract Router is PausableAccessControl {
             emit DEXRebalancing(_pid, 0, _amount, 3);
         } else {
             Synth memory synth = idex.synths(_pid);
-            opToken.transferFrom(msg.sender, address(this), _amount);
+            opToken.safeTransferFrom(msg.sender, address(this), _amount);
             if (opToken.allowance(address(this), address(idex)) < _amount) {
-                opToken.approve(address(idex), type(uint256).max);
+                opToken.safeIncreaseAllowance(address(idex), type(uint256).max);
             }
             synthAmount = idex.buy(_pid, _amount);
-            synth.synth.transfer(msg.sender, synthAmount);
+            synth.synth.safeTransfer(msg.sender, synthAmount);
             checkLiquidity(_pid);
         }
     }
@@ -118,12 +122,12 @@ contract Router is PausableAccessControl {
             emit DEXRebalancing(0, 0, _amount, 4);
         } else {
             Synth memory synth = idex.synths(_pid);
-            synth.synth.transferFrom(msg.sender, address(this), _amount);
+            synth.synth.safeTransferFrom(msg.sender, address(this), _amount);
             if (synth.synth.allowance(address(this), address(idex)) < _amount) {
-                synth.synth.approve(address(idex), type(uint256).max);
+                synth.synth.safeIncreaseAllowance(address(idex), type(uint256).max);
             }
             opTokenAmount = idex.sell(_pid, _amount);
-            opToken.transfer(msg.sender, opTokenAmount);
+            opToken.safeTransfer(msg.sender, opTokenAmount);
             checkLiquidity(_pid);
         }
     }
@@ -151,7 +155,7 @@ contract Router is PausableAccessControl {
         onlyRole(ADMIN)
         whenNotPaused
     {
-        opToken.transfer(pool, amount);
+        opToken.safeTransfer(pool, amount);
         emit Deposit(pool, amount);
     }
 

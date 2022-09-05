@@ -4,6 +4,7 @@ pragma solidity 0.8.15;
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./BaseSynthChef.sol";
@@ -53,6 +54,8 @@ interface ConvexReward {
 }
 
 contract ETHSynthChef is BaseSynthChef {
+    using SafeERC20 for IERC20;
+
     address public router;
     address public factory;
     address public convex;
@@ -104,7 +107,7 @@ contract ETHSynthChef is BaseSynthChef {
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
         if (IERC20(poolsArray[_pid].lp).allowance(address(this), convex) == 0) {
-            IERC20(poolsArray[_pid].lp).approve(convex, type(uint256).max);
+            IERC20(poolsArray[_pid].lp).safeIncreaseAllowance(convex, type(uint256).max);
         }
         Convex(convex).deposit(poolsArray[_pid].convexID, _amount, true);
     }
@@ -157,7 +160,7 @@ contract ETHSynthChef is BaseSynthChef {
                 poolsArray[_pid].curvePool
             ) == 0
         ) {
-            IERC20(token0).approve(
+            IERC20(token0).safeIncreaseAllowance(
                 poolsArray[_pid].curvePool,
                 type(uint256).max
             );
@@ -169,7 +172,7 @@ contract ETHSynthChef is BaseSynthChef {
                 poolsArray[_pid].curvePool
             ) == 0
         ) {
-            IERC20(token1).approve(
+            IERC20(token1).safeIncreaseAllowance(
                 poolsArray[_pid].curvePool,
                 type(uint256).max
             );

@@ -3,6 +3,7 @@ pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BaseSynthChef.sol";
 
 interface IMasterChef {
@@ -22,7 +23,7 @@ interface IMasterChef {
     function withdraw(uint256 pid, uint256 amount) external;
 }
 
-interface ISpiritRouter {
+interface IRouter {
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -43,6 +44,8 @@ interface ISpiritRouter {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB);
+
+    function factory() external view returns(address);
 }
 
 interface IPair {
@@ -55,15 +58,15 @@ interface IPair {
 }
 
 contract BSCSynthChef is BaseSynthChef {
+    using SafeERC20 for IERC20;
 
     IMasterChef public chef;
-    ISpiritRouter public router;
+    IRouter public router;
     address public factory;
 
     constructor(
         IMasterChef _chef,
-        ISpiritRouter _router,
-        address _factory,
+        IRouter _router,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens,
@@ -72,7 +75,7 @@ contract BSCSynthChef is BaseSynthChef {
     ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector){
         chef = _chef;
         router = _router;
-        factory = _factory;
+        factory = _router.factory();
     }
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
@@ -206,7 +209,7 @@ contract BSCSynthChef is BaseSynthChef {
             _pid,
             address(this)
         );
-        address lpPair = IMasterChef(chef).lpToken(_pid);
+        address lpPair = chef.lpToken(_pid);
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
         (uint256 reserve0, uint256 reserve1, ) = IPair(lpPair).getReserves();
