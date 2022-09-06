@@ -44,8 +44,6 @@ interface IRouter {
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB);
-
-    function factory() external view returns(address);
 }
 
 interface IPair {
@@ -62,7 +60,6 @@ contract BSCSynthChef is BaseSynthChef {
 
     IMasterChef public chef;
     IRouter public router;
-    address public factory;
 
     constructor(
         IMasterChef _chef,
@@ -75,7 +72,6 @@ contract BSCSynthChef is BaseSynthChef {
     ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector){
         chef = _chef;
         router = _router;
-        factory = _router.factory();
     }
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {

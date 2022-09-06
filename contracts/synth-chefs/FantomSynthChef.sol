@@ -6,89 +6,106 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BaseSynthChef.sol";
 
-interface IMasterChef {
-    struct UserInfo {
-        uint256 amount; // How many LP tokens the user has provided.
-        uint256 rewardDebt; // Reward debt. See explanation below.
-    }
-
-    function CAKE() external returns (IERC20);
-
-    function lpToken(uint256 pid) external view returns (address);
-
-    function userInfo(uint256 pid, address user) external view returns (IMasterChef.UserInfo memory);
-
-    function deposit(uint256 _pid, uint256 _amount) external;
-
-    function withdraw(uint256 pid, uint256 amount) external;
-}
-
 interface ISpiritRouter {
     function addLiquidity(
         address tokenA,
         address tokenB,
+        bool stable,
         uint amountADesired,
         uint amountBDesired,
         uint amountAMin,
         uint amountBMin,
         address to,
         uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidity);
+    )
+        external
+        returns (
+            uint amountA,
+            uint amountB,
+            uint liquidity
+        );
 
     function removeLiquidity(
         address tokenA,
         address tokenB,
+        bool stable,
         uint liquidity,
         uint amountAMin,
         uint amountBMin,
         address to,
         uint deadline
     ) external returns (uint amountA, uint amountB);
+
+    function quoteRemoveLiquidity(
+        address tokenA,
+        address tokenB,
+        bool stable,
+        uint256 liquidity
+    ) external view returns (uint256 amountA, uint256 amountB);
 }
 
-interface IPair {
-    function token0() external view returns (address);
-    function token1() external view returns (address);
+interface IGauge {
+    function deposit(uint256 amount) external;
 
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function withdraw(uint256 amount) external;
 
-    function totalSupply() external view returns (uint);
+    function getReward() external;
+
+    function balanceOf(address account) external view returns (uint256);
 }
 
 contract FantomSynthChef is BaseSynthChef {
     using SafeERC20 for IERC20;
 
-    IMasterChef public chef;
     ISpiritRouter public router;
-    address public factory;
+
+    Pool[] public poolsArray;
+
+    struct Pool {
+        IERC20 LPToken;
+        IGauge gauge;
+        IERC20 token0;
+        IERC20 token1;
+        bool stable;
+    }
 
     constructor(
-        IMasterChef _chef,
         ISpiritRouter _router,
-        address _factory,
         address _DEXWrapper,
         address _stablecoin,
         address[] memory _rewardTokens,
         uint256 _fee,
         address _feeCollector
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector){
-        chef = _chef;
+    )
+        BaseSynthChef(
+            _DEXWrapper,
+            _stablecoin,
+            _rewardTokens,
+            _fee,
+            _feeCollector
+        )
+    {
         router = _router;
-        factory = _factory;
     }
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
-        address lpPair = chef.lpToken(_pid);
-        if (IERC20(lpPair).allowance(address(this), address(chef)) < _amount) {
-            IERC20(lpPair).safeIncreaseAllowance(address(chef), type(uint256).max);
+        Pool memory pool = poolsArray[_pid];
+        if (pool.LPToken.allowance(address(this), address(pool.gauge)) < _amount) {
+            pool.LPToken.safeIncreaseAllowance(
+                address(pool.gauge),
+                type(uint256).max
+            );
         }
-        chef.deposit(_pid, _amount);
+        pool.gauge.deposit(_amount);
     }
 
-    function _withdrawFromFarm(uint256 _pid, uint256 _amount) internal override {
-        chef.withdraw(_pid, _amount);
+    function _withdrawFromFarm(uint256 _pid, uint256 _amount)
+        internal
+        override
+    {
+        Pool memory pool = poolsArray[_pid];
+        pool.gauge.withdraw(_amount);
     }
-
 
     /**
      * @dev function that convert tokens in lp token
@@ -106,10 +123,9 @@ contract FantomSynthChef is BaseSynthChef {
             uint256 amount1
         )
     {
-        address lpPair = chef.lpToken(_pid);
-        token0 = IPair(lpPair).token0();
-        token1 = IPair(lpPair).token1();
-
+        Pool memory pool = poolsArray[_pid];
+        token0 = address(pool.token0);
+        token1 = address(pool.token1);
         amount0 = _convertTokens(_tokenFrom, token0, _amount / 2);
         amount1 = _convertTokens(_tokenFrom, token1, _amount / 2);
     }
@@ -126,6 +142,7 @@ contract FantomSynthChef is BaseSynthChef {
         address _tokenFrom,
         uint256 _amount
     ) internal override returns (uint256 amountLPs) {
+        Pool memory pool = poolsArray[_pid];
         (
             address token0,
             address token1,
@@ -134,16 +151,23 @@ contract FantomSynthChef is BaseSynthChef {
         ) = _convertTokensToProvideLiquidity(_pid, _tokenFrom, _amount);
 
         if (IERC20(token0).allowance(address(this), address(router)) == 0) {
-            IERC20(token0).safeIncreaseAllowance(address(router), type(uint256).max);
+            IERC20(token0).safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
 
         if (IERC20(token1).allowance(address(this), address(router)) == 0) {
-            IERC20(token1).safeIncreaseAllowance(address(router), type(uint256).max);
+            IERC20(token1).safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
 
         (, , amountLPs) = router.addLiquidity(
             token0,
             token1,
+            pool.stable,
             amount0,
             amount1,
             0,
@@ -157,66 +181,71 @@ contract FantomSynthChef is BaseSynthChef {
      * @dev function for collecting rewards
      */
     function _harvest(uint256 _pid) internal override {
-        _depositToFarm(_pid, 0);
+        Pool memory pool = poolsArray[_pid];
+        pool.gauge.getReward();
     }
-
 
     function _removeLiquidity(uint256 _pid, uint256 _amount)
         internal
         override
         returns (TokenAmount[] memory tokenAmounts)
     {
+        Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
-        address lpPair = chef.lpToken(_pid);
-        address token0 = IPair(lpPair).token0();
-        address token1 = IPair(lpPair).token1();
 
-        if (IERC20(lpPair).allowance(address(this), address(router)) < _amount) {
-            IERC20(lpPair).safeIncreaseAllowance(address(router), type(uint256).max);
+        if (pool.LPToken.allowance(address(this), address(router)) < _amount) {
+            pool.LPToken.safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
 
         (uint256 amount0, uint256 amount1) = router.removeLiquidity(
-            token0,
-            token1,
+            address(pool.token0),
+            address(pool.token1),
+            pool.stable,
             _amount,
             1,
             1,
             address(this),
             block.timestamp
         );
-        tokenAmounts[0] = TokenAmount({amount: amount0, token: token0});
-        tokenAmounts[1] = TokenAmount({amount: amount1, token: token1});
+        tokenAmounts[0] = TokenAmount({amount: amount0, token: address(pool.token0)});
+        tokenAmounts[1] = TokenAmount({amount: amount1, token: address(pool.token1)});
     }
 
-    /**
-     * @dev function for removing LP token
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
     function _getTokensInLP(uint256 _pid)
         internal
         view
         override
-        returns (
-            TokenAmount[] memory tokenAmounts
-        )
+        returns (TokenAmount[] memory tokenAmounts)
     {
+        Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
-        IMasterChef.UserInfo memory user = chef.userInfo(
-            _pid,
-            address(this)
+        uint256 amountLP = pool.gauge.balanceOf(address(this));
+        (uint256 amount0, uint256 amount1) = router.quoteRemoveLiquidity(
+            address(pool.token0),
+            address(pool.token1),
+            pool.stable,
+            amountLP
         );
-        address lpPair = IMasterChef(chef).lpToken(_pid);
-        address token0 = IPair(lpPair).token0();
-        address token1 = IPair(lpPair).token1();
-        (uint256 reserve0, uint256 reserve1, ) = IPair(lpPair).getReserves();
-        uint256 totalSupply = IPair(lpPair).totalSupply();
-        uint256 amountLP = user.amount;
-        uint256 amount0 = amountLP * reserve0 / totalSupply;
-        uint256 amount1 = amountLP * reserve1 / totalSupply;
-        tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
-        tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
+        tokenAmounts[0] = TokenAmount({
+            token: address(pool.token0),
+            amount: amount0
+        });
+        tokenAmounts[1] = TokenAmount({
+            token: address(pool.token1),
+            amount: amount1
+        });
+    }
+
+    function addPool(
+        IERC20 LPToken,
+        IGauge gauge,
+        IERC20 token0,
+        IERC20 token1,
+        bool stable
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        poolsArray.push(Pool(LPToken, gauge, token0, token1, stable));
     }
 }
