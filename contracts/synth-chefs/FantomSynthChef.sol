@@ -239,6 +239,16 @@ contract FantomSynthChef is BaseSynthChef {
         });
     }
 
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
+        Pool memory pool = poolsArray[_pid];
+        amount = pool.gauge.balanceOf(address(this));
+    }
+
     function addPool(
         IERC20 LPToken,
         IGauge gauge,

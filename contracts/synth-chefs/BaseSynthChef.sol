@@ -124,10 +124,12 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     {
         TokenAmount[] memory tokens = _getTokensInLP(_pid);
         for (uint i = 0; i < tokens.length; i++) {
-            totalAmount += convertTokenToStablecoin(
-                tokens[i].token,
-                tokens[i].amount
-            );
+            if (tokens[i].amount > 0) {
+                totalAmount += convertTokenToStablecoin(
+                    tokens[i].token,
+                    tokens[i].amount
+                );
+            }
         }
     }
 
@@ -153,6 +155,12 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         view
         virtual
         returns (TokenAmount[] memory tokens);
+    
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        virtual
+        returns (uint256 amount);
 
     function _convertTokens(
         address from,

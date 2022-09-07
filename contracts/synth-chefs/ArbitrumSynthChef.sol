@@ -171,6 +171,19 @@ contract ArbitrumSynthChef is BaseSynthChef {
         tokenAmounts[0] = TokenAmount({amount: amount, token: token});
     }
 
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
+        Pool memory pool = poolsArray[_pid];
+        amount = pool
+            .stargate
+            .userInfo(pool.stargateLPStakingPoolID, address(this))
+            .amount;
+    }
+
     function addPool(
         IERC20 LPToken,
         IStargate stargate,

@@ -81,7 +81,15 @@ contract ETHSynthChef is BaseSynthChef {
         address[] memory _rewardTokens,
         uint256 _fee,
         address _feeCollector
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector) {
+    )
+        BaseSynthChef(
+            _DEXWrapper,
+            _stablecoin,
+            _rewardTokens,
+            _fee,
+            _feeCollector
+        )
+    {
         convex = _convex;
         router = _router;
         factory = _factory;
@@ -107,7 +115,10 @@ contract ETHSynthChef is BaseSynthChef {
 
     function _depositToFarm(uint256 _pid, uint256 _amount) internal override {
         if (IERC20(poolsArray[_pid].lp).allowance(address(this), convex) == 0) {
-            IERC20(poolsArray[_pid].lp).safeIncreaseAllowance(convex, type(uint256).max);
+            IERC20(poolsArray[_pid].lp).safeIncreaseAllowance(
+                convex,
+                type(uint256).max
+            );
         }
         Convex(convex).deposit(poolsArray[_pid].convexID, _amount, true);
     }
@@ -222,6 +233,17 @@ contract ETHSynthChef is BaseSynthChef {
             .calc_withdraw_one_coin(amountLP, int128(1));
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
+    }
+
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
+        amount = ConvexReward(poolsArray[_pid].convexreward).balanceOf(
+            address(this)
+        );
     }
 
     function addPool(

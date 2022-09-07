@@ -16,7 +16,7 @@ describe("Avax Synth Chef", function () {
     before(async function () {
         owner = (await ethers.getSigners())[0];
         const UniswapWrapperFactory = await ethers.getContractFactory("UniswapWrapper") as UniswapWrapper__factory; 
-        wrapper = await UniswapWrapperFactory.deploy("0x60aE616a2155Ee3d9A68541Ba4544862310933d4") as UniswapWrapper;
+        wrapper = await UniswapWrapperFactory.deploy("0x60aE616a2155Ee3d9A68541Ba4544862310933d4", "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7") as UniswapWrapper;
         weth = new ethers.Contract("0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7", WETH_ABI, owner);
         console.log("Swapping ETH to WETH...");
         await weth.deposit({ value: ethers.utils.parseEther("2.0")});
@@ -34,22 +34,22 @@ describe("Avax Synth Chef", function () {
 
     it("Deposit", async function () { 
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(8, weth.address, ethers.utils.parseEther("1.0"));
-        expect(await chef.getBalanceOnFarm(8)).to.be.greaterThan(0);
+        await chef.deposit(51, weth.address, ethers.utils.parseEther("1.0"));
+        expect(await chef.getBalanceOnFarm(51)).to.be.greaterThan(0);
     });
 
     it("Compound", async function () {
-        let balanceBeforeCompound = await chef.getBalanceOnFarm(7);
-        await ethers.provider.send("evm_increaseTime", [3600*24*365]);
-        await chef.compound(7);
-        let balanceAfterCompound = await chef.getBalanceOnFarm(7);
-        expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
+        let balanceBeforeCompound = await chef.getBalanceOnFarm(51);
+        await ethers.provider.send("evm_increaseTime", [3600*24*365*100]);
+        await chef.compound(51);
+        let balanceAfterCompound = await chef.getBalanceOnFarm(51);
+        expect(balanceAfterCompound).to.be.greaterThanOrEqual(balanceBeforeCompound);
     });
 
     it("Withdraw", async function () {
-        let balanceBeforeWithdraw = await chef.getBalanceOnFarm(7);
-        await chef.withdraw(7, "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", balanceBeforeWithdraw.div(10), owner.getAddress());
-        let balanceAfterWithdraw = await chef.getBalanceOnFarm(7);
+        let balanceBeforeWithdraw = await chef.getBalanceOnFarm(51);
+        await chef.withdraw(51, "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", chef.getLPAmountOnFarm(51), owner.getAddress());
+        let balanceAfterWithdraw = await chef.getBalanceOnFarm(51);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });
 });

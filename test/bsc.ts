@@ -16,7 +16,7 @@ describe("BSC Synth Chef", function () {
     before(async function () {
         owner = (await ethers.getSigners())[0];
         const UniswapWrapperFactory = await ethers.getContractFactory("UniswapWrapper") as UniswapWrapper__factory; 
-        wrapper = await UniswapWrapperFactory.deploy("0x10ED43C718714eb63d5aA57B78B54704E256024E") as UniswapWrapper;
+        wrapper = await UniswapWrapperFactory.deploy("0x10ED43C718714eb63d5aA57B78B54704E256024E", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c") as UniswapWrapper;
         weth = new ethers.Contract("0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c", WETH_ABI, owner);
         console.log("Swapping ETH to WETH...");
         await weth.deposit({ value: ethers.utils.parseEther("2.0")});
@@ -48,7 +48,7 @@ describe("BSC Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(7);
-        await chef.withdraw(7, "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", balanceBeforeWithdraw.div(10), owner.getAddress());
+        await chef.withdraw(7, "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", chef.getLPAmountOnFarm(7), owner.getAddress());
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(7);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

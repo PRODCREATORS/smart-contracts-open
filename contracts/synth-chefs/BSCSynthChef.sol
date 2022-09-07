@@ -16,7 +16,10 @@ interface IMasterChef {
 
     function lpToken(uint256 pid) external view returns (address);
 
-    function userInfo(uint256 pid, address user) external view returns (IMasterChef.UserInfo memory);
+    function userInfo(uint256 pid, address user)
+        external
+        view
+        returns (IMasterChef.UserInfo memory);
 
     function deposit(uint256 _pid, uint256 _amount) external;
 
@@ -33,7 +36,13 @@ interface IRouter {
         uint amountBMin,
         address to,
         uint deadline
-    ) external returns (uint amountA, uint amountB, uint liquidity);
+    )
+        external
+        returns (
+            uint amountA,
+            uint amountB,
+            uint liquidity
+        );
 
     function removeLiquidity(
         address tokenA,
@@ -48,9 +57,17 @@ interface IRouter {
 
 interface IPair {
     function token0() external view returns (address);
+
     function token1() external view returns (address);
 
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function getReserves()
+        external
+        view
+        returns (
+            uint112 reserve0,
+            uint112 reserve1,
+            uint32 blockTimestampLast
+        );
 
     function totalSupply() external view returns (uint);
 }
@@ -69,7 +86,15 @@ contract BSCSynthChef is BaseSynthChef {
         address[] memory _rewardTokens,
         uint256 _fee,
         address _feeCollector
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector){
+    )
+        BaseSynthChef(
+            _DEXWrapper,
+            _stablecoin,
+            _rewardTokens,
+            _fee,
+            _feeCollector
+        )
+    {
         chef = _chef;
         router = _router;
     }
@@ -82,10 +107,12 @@ contract BSCSynthChef is BaseSynthChef {
         chef.deposit(_pid, _amount);
     }
 
-    function _withdrawFromFarm(uint256 _pid, uint256 _amount) internal override {
+    function _withdrawFromFarm(uint256 _pid, uint256 _amount)
+        internal
+        override
+    {
         chef.withdraw(_pid, _amount);
     }
-
 
     /**
      * @dev function that convert tokens in lp token
@@ -157,7 +184,6 @@ contract BSCSynthChef is BaseSynthChef {
         _depositToFarm(_pid, 0);
     }
 
-
     function _removeLiquidity(uint256 _pid, uint256 _amount)
         internal
         override
@@ -168,7 +194,9 @@ contract BSCSynthChef is BaseSynthChef {
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
 
-        if (IERC20(lpPair).allowance(address(this), address(router)) < _amount) {
+        if (
+            IERC20(lpPair).allowance(address(this), address(router)) < _amount
+        ) {
             IERC20(lpPair).approve(address(router), type(uint256).max);
         }
 
@@ -196,24 +224,28 @@ contract BSCSynthChef is BaseSynthChef {
         internal
         view
         override
-        returns (
-            TokenAmount[] memory tokenAmounts
-        )
+        returns (TokenAmount[] memory tokenAmounts)
     {
         tokenAmounts = new TokenAmount[](2);
-        IMasterChef.UserInfo memory user = chef.userInfo(
-            _pid,
-            address(this)
-        );
+        IMasterChef.UserInfo memory user = chef.userInfo(_pid, address(this));
         address lpPair = chef.lpToken(_pid);
         address token0 = IPair(lpPair).token0();
         address token1 = IPair(lpPair).token1();
         (uint256 reserve0, uint256 reserve1, ) = IPair(lpPair).getReserves();
         uint256 totalSupply = IPair(lpPair).totalSupply();
         uint256 amountLP = user.amount;
-        uint256 amount0 = amountLP * reserve0 / totalSupply;
-        uint256 amount1 = amountLP * reserve1 / totalSupply;
+        uint256 amount0 = (amountLP * reserve0) / totalSupply;
+        uint256 amount1 = (amountLP * reserve1) / totalSupply;
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
+    }
+
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
+        amount = chef.userInfo(_pid, address(this)).amount;
     }
 }

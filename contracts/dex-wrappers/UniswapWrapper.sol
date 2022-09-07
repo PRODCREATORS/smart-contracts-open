@@ -14,10 +14,10 @@ contract UniswapWrapper is IEntangleDEXWrapper {
     IUniswapV2Factory public factory;
     address public WETH;
 
-    constructor(address _router) {
+    constructor(address _router, address _WETH) {
         router = IUniswapV2Router01(_router);
         factory = IUniswapV2Factory(router.factory());
-        WETH = router.WETH();
+        WETH = _WETH;
     }
 
     function _getSwapPath(address from, address to) internal view returns (address[] memory path){

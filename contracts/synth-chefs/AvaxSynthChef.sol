@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BSL 1.1
 pragma solidity 0.8.15;
 
-
 import "./BaseSynthChef.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -43,7 +42,6 @@ interface IRouter {
             uint256 liquidity
         );
 
-
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -70,15 +68,20 @@ interface IMasterChef {
 
     function JOE() external returns (IERC20);
 
-    function poolInfo(uint256 pid) external view returns (IMasterChef.PoolInfo memory);
+    function poolInfo(uint256 pid)
+        external
+        view
+        returns (IMasterChef.PoolInfo memory);
 
-    function userInfo(uint256 pid, address user) external view returns (IMasterChef.UserInfo memory);
+    function userInfo(uint256 pid, address user)
+        external
+        view
+        returns (IMasterChef.UserInfo memory);
 
     function deposit(uint256 _pid, uint256 _amount) external;
 
     function withdraw(uint256 pid, uint256 amount) external;
 }
-
 
 contract AvaxSynthChef is BaseSynthChef {
     using SafeERC20 for IERC20;
@@ -94,7 +97,15 @@ contract AvaxSynthChef is BaseSynthChef {
         address[] memory _rewardTokens,
         uint256 _fee,
         address _feeCollector
-    ) BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector) {
+    )
+        BaseSynthChef(
+            _DEXWrapper,
+            _stablecoin,
+            _rewardTokens,
+            _fee,
+            _feeCollector
+        )
+    {
         chef = _chef;
         router = _router;
     }
@@ -127,7 +138,10 @@ contract AvaxSynthChef is BaseSynthChef {
         IMasterChef.PoolInfo memory farm = chef.poolInfo(_pid);
         address lpPair = address(farm.lpToken);
         if (IERC20(lpPair).allowance(address(this), address(chef)) < _amount) {
-            IERC20(lpPair).safeIncreaseAllowance(address(chef), type(uint256).max);
+            IERC20(lpPair).safeIncreaseAllowance(
+                address(chef),
+                type(uint256).max
+            );
         }
         chef.deposit(_pid, _amount);
     }
@@ -183,11 +197,17 @@ contract AvaxSynthChef is BaseSynthChef {
         ) = _convertTokensToProvideLiquidity(_pid, _tokenFrom, _amount);
 
         if (IERC20(token0).allowance(address(this), address(router)) == 0) {
-            IERC20(token0).safeIncreaseAllowance(address(router), type(uint256).max);
+            IERC20(token0).safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
 
         if (IERC20(token1).allowance(address(this), address(router)) == 0) {
-            IERC20(token1).safeIncreaseAllowance(address(router), type(uint256).max);
+            IERC20(token1).safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
         (, , amountLPs) = router.addLiquidity(
             token0,
@@ -229,7 +249,10 @@ contract AvaxSynthChef is BaseSynthChef {
         if (
             IERC20(lpPair).allowance(address(this), address(router)) < _amount
         ) {
-            IERC20(lpPair).safeIncreaseAllowance(address(router), type(uint256).max);
+            IERC20(lpPair).safeIncreaseAllowance(
+                address(router),
+                type(uint256).max
+            );
         }
         (uint256 amount0, uint256 amount1) = router.removeLiquidity(
             token0,
@@ -266,5 +289,14 @@ contract AvaxSynthChef is BaseSynthChef {
         uint256 amount1 = (amountLP * reserve1) / totalSupply;
         tokenAmounts[0] = TokenAmount({token: token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: token1, amount: amount1});
+    }
+
+    function getLPAmountOnFarm(uint256 _pid)
+        public
+        view
+        override
+        returns (uint256 amount)
+    {
+        amount = chef.userInfo(_pid, address(this)).amount;
     }
 }
