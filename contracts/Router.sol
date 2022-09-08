@@ -7,20 +7,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "./PausableAccessControl.sol";
 import "./interfaces/IETHDEXV1.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-interface IsynthChef {
-    function withdraw(
-        uint256 _amount,
-        address _token,
-        uint256 _pid
-    ) external;
-
-    function deposit(
-        uint256 _amount,
-        address _token,
-        uint256 _pid
-    ) external;
-}
+import "interfaces/ISynthChef.sol";
 
 interface Ipool {
     function depositToken(uint256 amount) external;
@@ -137,7 +124,7 @@ contract Router is PausableAccessControl {
         uint256 amountSynth,
         uint256 poolID
     ) external onlyRole(ADMIN) whenNotPaused {
-        chef.withdraw(amountSynth, factory.getSynth(pid), poolID);
+        chef.withdraw(amountSynth, factory.getSynth(pid), address(idex),  poolID);
         emit Withdraw(factory.getSynth(pid), amountSynth);
     }
 
