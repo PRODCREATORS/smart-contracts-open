@@ -22,23 +22,23 @@ describe("Fantom Synth Chef", function () {
         await weth.deposit({ value: ethers.utils.parseEther("2.0")});
         console.log("WETH balance:", await weth.balanceOf(owner.getAddress()));
         const ChefFactory = (await ethers.getContractFactory("FantomSynthChef")) as FantomSynthChef__factory;
-        chef = (await ChefFactory.deploy("0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614",
+        chef = (await ChefFactory.deploy("0x09855B4ef0b9df961ED097EF50172be3e6F13665",
             wrapper.address,
             "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",
             ["0x5Cc61A78F164885776AA610fb0FE1257df78E59B"],
             "1",
             await owner.getAddress())) as FantomSynthChef;
         await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress());
-        await chef.addPool("0xAfEcf681a8f3FB8D78581874339Bfca6252d62C4",
-            "0x41E57160673a9d1BedfCdE9341B53A61737Cd47E",
-            "0x7f5c764cbc14f9669b88837ca1490cca17c31607",
-            "0x8c6f28f2f1a3c87f0f938b96d27520d9751ec8d9",
+        await chef.addPool("0x40DEa26Dd3a0d549dC5Ecd4522045e8AD02f83FB",
+            "0x9ad5E3Fcc5a65D3675139e50C7a20E6f30Fd80A0",
+            "0x04068da6c83afcfa0e13ba15a6696662335d5b75",
+            "0x049d68029688eabf473097a2fc38ef61633a3c7a",
             true);
     });
 
     it("Deposit", async function () { 
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(ethers.utils.parseEther("1.0"), weth.address, 0);
+        await chef.deposit(0, weth.address, ethers.utils.parseEther("1.0"));
         expect(await chef.getBalanceOnFarm(0)).to.be.greaterThan(0);
     });
     
@@ -52,7 +52,7 @@ describe("Fantom Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-        await chef.withdraw(0, "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", chef.getLPAmountOnFarm(0), owner.getAddress());
+        await chef.withdraw(0, "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75", chef.getLPAmountOnFarm(0), owner.getAddress());
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });
