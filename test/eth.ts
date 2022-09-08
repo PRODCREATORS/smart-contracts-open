@@ -13,7 +13,6 @@ describe("ETH Synth Chef", function () {
     let owner: Signer;
     let weth: Contract;
     let wrapper: UniswapWrapper;
-    let masterchef: Contract;
     before(async function () {
         owner = (await ethers.getSigners())[0];
         const UniswapWrapperFactory = await ethers.getContractFactory("UniswapWrapper") as UniswapWrapper__factory; 
@@ -23,16 +22,20 @@ describe("ETH Synth Chef", function () {
         await weth.deposit({ value: ethers.utils.parseEther("2.0")});
         console.log("WETH balance:", await weth.balanceOf(owner.getAddress()));
         const ChefFactory = (await ethers.getContractFactory("ETHSynthChef")) as ETHSynthChef__factory;
-        chef = (await ChefFactory.deploy("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", //router
-                "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f", //factory
-                "0xEB16Ae0052ed37f479f7fe63849198Df1765a733", //convex
+        chef = (await ChefFactory.deploy("0xF403C135812408BFbE8713b5A23a04b3D48AAE31", //convex
             wrapper.address, //dex interface
-            "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", //stable
-            ["0xD533a949740bb3306d119CC777fa900bA034cd52"], //reward
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", //stable
+            ["0xD533a949740bb3306d119CC777fa900bA034cd52", "0x4e3FBD56CD56c3e72c1403e103b45Db9da5B9D2B"], //reward
             "1", //fee
             await owner .getAddress())) as ETHSynthChef; //fee collector
         await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress());
-        await chef.addPool("0x02d341CcB60fAaf662bC0554d13778015d1b285C",26,"0x6B175474E89094C44Da98b954EedeAC495271d0F","0x57Ab1ec28D129707052df4dF418D58a2D46d5f51","0xEB16Ae0052ed37f479f7fe63849198Df1765a733","0xD533a949740bb3306d119CC777fa900bA034cd52","0xfC1E690f61EFd961294b3e1Ce3313fBD8aa4f85d","0x625aE63000f46200499120B906716420bd059240")
+        await chef.addPool("0x02d341CcB60fAaf662bC0554d13778015d1b285C",
+                            26,
+                            "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+                            "0x57Ab1ec28D129707052df4dF418D58a2D46d5f51",
+                            "0xEB16Ae0052ed37f479f7fe63849198Df1765a733",
+                            "0xF86AE6790654b70727dbE58BF1a863B270317fD0"
+                            )
     });
 
     it("Deposit", async function () { 
@@ -42,19 +45,17 @@ describe("ETH Synth Chef", function () {
     });
 
     it("Compound", async function () {
-        let balanceBeforeCompound = await chef.getBalanceOnFarm(26);
-        await ethers.provider.send("evm_increaseTime", [3600*24*365*100]);
-        await masterchef.updatePool(26);
-        await chef.compound(26);
-        let balanceAfterCompound = await chef.getBalanceOnFarm(26);
-        console.log(balanceAfterCompound,balanceBeforeCompound);
+        let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
+        await ethers.provider.send("evm_increaseTime", [3600*24*365]);
+        await chef.compound(0);
+        let balanceAfterCompound = await chef.getBalanceOnFarm(0);
         expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
     });
 
     it("Withdraw", async function () {
-        let balanceBeforeWithdraw = await chef.getBalanceOnFarm(26);
-        await chef.withdraw(26, "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", chef.getLPAmountOnFarm(26), owner.getAddress());
-        let balanceAfterWithdraw = await chef.getBalanceOnFarm(26);
+        let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
+        await chef.withdraw(0, "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", chef.getLPAmountOnFarm(0), owner.getAddress());
+        let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });
 });
