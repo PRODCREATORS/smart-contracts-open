@@ -5,9 +5,10 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntangleSynth.sol";
-import "./interfaces/ISynthChef.sol";
+import "./synth-chefs/BaseSynthChef.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "hardhat/console.sol";
 
 contract EntangleDEXOnDemand is AccessControl {
     using SafeERC20 for IERC20Metadata;
@@ -17,8 +18,8 @@ contract EntangleDEXOnDemand is AccessControl {
     EntangleSynth public synth; //synth token
     EntangleSynthFactory public factory; //synth factory
     IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
-    ISynthChef public chef; //masterchef
-    uint256 public poolID; // poolID at synth chef
+    BaseSynthChef public chef; //masterchef
+    uint256 public pid; // poolID at synth chef
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -28,16 +29,15 @@ contract EntangleDEXOnDemand is AccessControl {
      * @dev Sets the values for `synth`, `pid`,`factory`,`opToken`,`rate` and `chef`.
      */
     constructor(
-        uint256 _synth,
         uint256 _pid,
         EntangleSynthFactory _factory,
-        ISynthChef _chef
+        BaseSynthChef _chef
     ) {
         factory = _factory;
-        poolID = _pid;
-        synth = EntangleSynth(factory.getSynth(_synth));
-        opToken = IERC20Metadata(address(synth.opToken()));
         chef = _chef;
+        pid = _pid;
+        synth = factory.synths(block.chainid, address(chef), _pid);
+        opToken = IERC20Metadata(address(synth.opToken()));
 
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(BUYER, ADMIN_ROLE);
@@ -59,12 +59,14 @@ contract EntangleDEXOnDemand is AccessControl {
         uint256 amountSynth = synth.convertOpAmountToSynthAmount(_amount);
         opToken.safeTransferFrom(msg.sender, address(this), _amount);
         chef.deposit(
-            _amount,
+            pid,
             address(opToken),
-            poolID
+            _amount
         );
         factory.mint(
-            synth.pid(),
+            block.chainid,
+            address(chef),
+            pid,
             amountSynth,
             msg.sender
         );
@@ -79,13 +81,13 @@ contract EntangleDEXOnDemand is AccessControl {
      * - the caller must have `BUYER` role.
      */
     function sell(uint256 _amount) external onlyRole(BUYER) {
-        uint256 amountOpToken = synth.convertSynthAmountToOpAmount(_amount);
         factory.burn(
-            synth.pid(),
+            block.chainid,
+            address(chef),
+            pid,
             msg.sender,
             _amount
         );
-        uint256 lpAmount = amountOpToken * (10 ** 18) / synth.getPriceFor1LP();
-        chef.withdraw(lpAmount, address(opToken), msg.sender, poolID);
+        chef.withdraw(pid, address(opToken), _amount, msg.sender);
     }
 }

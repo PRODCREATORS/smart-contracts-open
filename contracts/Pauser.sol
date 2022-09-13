@@ -8,7 +8,7 @@ import "./interfaces/IPausable.sol";
 contract Pauser is AccessControl {
     IPausable[] public contracts;
 
-    bytes32 public constant ADMIN_ROLE = keccak256("OWNER_ROLE");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     constructor(IPausable[] memory _contracts) {
