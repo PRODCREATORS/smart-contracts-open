@@ -92,8 +92,8 @@ contract EntangleSynthFactory is PausableAccessControl {
         uint256 _chainId,
         address _synthChef,
         uint256 _pid,
-        address _from,
-        uint256 _amount
+        uint256 _amount,
+        address _from
     ) external onlyRole(MINT_ROLE) whenNotPaused {
         EntangleSynth synth = synths[_chainId][_synthChef][_pid];
         EntangleSynth(synth).burn(_from, _amount);

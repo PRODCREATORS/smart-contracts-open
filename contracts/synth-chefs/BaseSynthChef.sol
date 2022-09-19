@@ -26,8 +26,8 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
 
-    event Deposit(uint256 indexed pid, uint256 amount);
-    event Withdraw(uint256 indexed pid, uint256 amount);
+    event Deposit(uint256 indexed pid, uint256 amount, uint256 opId);
+    event Withdraw(uint256 indexed pid, uint256 amount, uint256 opId);
     event Compound(uint256 indexed pid, uint256 amountStable);
 
     constructor(

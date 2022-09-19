@@ -8,15 +8,22 @@ import "./PausableAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Pool is PausableAccessControl {
+    struct AnycallInfo {
+        uint256 opId;
+    }
+
     using SafeERC20 for IERC20;
     
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant DEPOSITER_ROLE = keccak256("DEPOSITER");
+    bytes32 public constant EXEC_CALLER_ROLE = keccak256("EXEC_CALLER_ROLE");
 
     IERC20 token;
+    mapping(address => bool) public canCallExec;
 
-    constructor(IERC20 _token) {
+    constructor(IERC20 _token, address _multichainExecutor) {
         _setRoleAdmin(DEPOSITER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(EXEC_CALLER_ROLE, ADMIN_ROLE);
         _setupRole(ADMIN_ROLE, msg.sender);
         token = _token;
     }
@@ -29,8 +36,8 @@ contract Pool is PausableAccessControl {
         emit Deposit(amount, opId);
     }
 
-    function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
-        token.safeTransfer(msg.sender, amount);
+    function withdrawToken(uint256 amount, address to) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
+        token.safeTransfer(to, amount);
         emit Withdraw(amount);
     }
 
@@ -46,5 +53,15 @@ contract Pool is PausableAccessControl {
     
     function updateToken(IERC20 _token) external onlyRole(ADMIN_ROLE) whenNotPaused {
         token = _token;
+    }
+
+    function exec(
+        address token,
+        address receiver,
+        uint256 amount,
+        bytes calldata data
+    ) onlyRole(EXEC_CALLER_ROLE) {
+        AnycallInfo memory info = abi.decode(data, (AnycallInfo));
+        emit Deposit(amount, info.opId);
     }
 }
