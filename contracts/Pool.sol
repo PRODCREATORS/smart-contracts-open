@@ -21,12 +21,12 @@ contract Pool is PausableAccessControl {
         token = _token;
     }
     
-    event Deposit(uint256 amount);
+    event Deposit(uint256 amount, uint256 opId);
     event Withdraw(uint256 amount);
 
-    function depositToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
+    function depositToken(uint256 amount, uint256 opId) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
         token.safeTransferFrom(msg.sender, address(this), amount);
-        emit Deposit(amount);
+        emit Deposit(amount, opId);
     }
 
     function withdrawToken(uint256 amount) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
