@@ -3,18 +3,14 @@ pragma solidity 0.8.15;
 
 import "./Lender.sol";
 import "./PausableAccessControl.sol";
+import "./EntangleSynth.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-interface ISynth is IERC20Metadata {
-    function convertSynthToOp(uint256 synthAmount) external view returns (uint256 opAmount);
-    function convertOpToSynth(uint256 opAmount) external view returns (uint256 synthAmount);
-}
 
 contract EntangleDEX is PausableAccessControl, Lender {
     using SafeERC20 for IERC20Metadata;
     using SafeERC20 for IERC20;
-    using SafeERC20 for ISynth;
+    using SafeERC20 for EntangleSynth;
 
     IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
 
@@ -27,13 +23,11 @@ contract EntangleDEX is PausableAccessControl, Lender {
 
     event Rebalancing(address token, uint256 amount);
 
-    struct Synth {
-        ISynth synth;
-        uint8 pid;
+    struct SynthData {
         bool isActive;
     }
 
-    mapping(uint8 => Synth) public synths;
+    mapping(EntangleSynth => SynthData) public synths;
 
     /**
      * @dev Sets the values for `synth`, `opToken` and `rate`.
@@ -53,28 +47,17 @@ contract EntangleDEX is PausableAccessControl, Lender {
         feeCollector = _feeCollector;
     }
 
-    modifier isActive(uint8 _pid) {
-        require(
-            synths[_pid].isActive == true,
-            "No such synth or it is disabled"
-        );
-        _;
-    }
-
-    modifier exist(uint8 _pid) {
-        require(address(synths[_pid].synth) != address(0), "Doesn't exist");
+    modifier exist(EntangleSynth _synth) {
+        require(synths[_synth].isActive, "Is not active");
         _;
     }
 
     function add(
-        ISynth _synth,
-        uint8 _pid
+        EntangleSynth _synth,
     ) public onlyRole(ADMIN) whenNotPaused {
-        require(synths[_pid].isActive == false, "Already added");
-        synths[_pid] = Synth({
-            synth: _synth,
-            pid: _pid,
-            isActive: true
+        require(!synths[_synth].isActive, "Already added");
+        synths[_synth] = Synth({
+            isActive: true 
         });
     }
 
@@ -86,20 +69,18 @@ contract EntangleDEX is PausableAccessControl, Lender {
      *
      * - the caller must have `BUYER` role.
      */
-    function buy(uint8 _pid, uint256 _amount)
+    function buy(EntangleSynth _synth, uint256 _amount)
         public
-        exist(_pid)
-        isActive(_pid)
+        exist(_synth)
         whenNotPaused
         returns(uint256 synthAmount)
     {
-        Synth memory synth = synths[_pid];
         uint256 fee_ = _amount * fee / feeRate;
         _amount -= fee_;
-        synthAmount = synth.synth.convertOpToSynth(_amount);
+        synthAmount = _synth.convertOpToSynth(_amount);
         opToken.safeTransferFrom(msg.sender, address(this), _amount);
         opToken.safeTransfer(feeCollector, fee_);
-        synth.synth.safeTransfer(msg.sender, synthAmount);
+        _synth.safeTransfer(msg.sender, synthAmount);
     }
 
     /**
@@ -111,55 +92,22 @@ contract EntangleDEX is PausableAccessControl, Lender {
      * - the caller must have `BUYER` role.
      *
      */
-    function sell(uint8 _pid, uint256 _amount)
+    function sell(EntangleSynth _synth, uint256 _amount)
         public
         exist(_pid)
-        isActive(_pid) 
         whenNotPaused 
         returns (uint256 opTokenAmount)
     {
-        //amount synth
-        Synth memory synth = synths[_pid];
-        opTokenAmount = synth.synth.convertSynthToOp(_amount);
+        opTokenAmount = _synth.convertSynthToOp(_amount);
         uint256 fee_ = opTokenAmount * fee / feeRate;
         opTokenAmount = opTokenAmount - fee_;
-        synth.synth.safeTransferFrom(
+        _synth.safeTransferFrom(
             msg.sender,
             address(this),
             _amount
         );
         opToken.safeTransfer(feeCollector, fee_);
         opToken.safeTransfer(msg.sender, opTokenAmount);
-    }
-
-    /**
-     * @dev function for withdrawing token for payment
-     * @param _amount op token amount
-     * @param to recipient's address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function withdrawOpTokens(uint256 _amount, address to) public onlyRole(ADMIN) whenNotPaused {
-        require(
-            opToken.balanceOf(address(this)) >= _amount,
-            "Not enough opToken to withdraw"
-        );
-        opToken.safeTransfer(to, _amount);
-    }
-
-    /**
-     * @dev function for changing the token for payment
-     * @param _opToken op token address
-     *
-     * Requirements:
-     *
-     * - the caller must have admin role.
-     */
-    function changeOpToken(IERC20Metadata _opToken) public onlyRole(ADMIN) whenNotPaused {
-        require(address(_opToken) != address(0), "Invalid address");
-        opToken = _opToken;
     }
 
     /**
@@ -181,39 +129,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function pauseSynth(uint8 _pid) public exist(_pid) whenNotPaused onlyRole(ADMIN) {
-        synths[_pid].isActive = !synths[_pid].isActive;
-    }
-
-    function getSynthBalance(uint8 _pid) public view whenNotPaused returns (uint256) {
-        Synth memory synth = synths[_pid];
-        uint256 balance = synth.synth.balanceOf(address(this));
-        return balance;
-    }
-
-    function getOpTokenBalance() public view whenNotPaused returns (uint256) {
-        uint256 balance = opToken.balanceOf(address(this));
-        return balance;
-    }
-
-    //Give Admin Role to IDEX at first
-    function checkRebalancingSynth(uint8 _pid, uint256 _amount)
-        external
-        view
-        onlyRole(ADMIN)
-        whenNotPaused
-        returns (bool)
-    {
-        return getSynthBalance(_pid) < _amount;
-    }
-
-    function checkOpRebalancing(uint256 _amount)
-        external
-        view
-        onlyRole(ADMIN)
-        whenNotPaused
-        returns (bool)
-    {
-        return getOpTokenBalance() < _amount;
+    function switchSynthState(EntangleSynth _synth) public exist(_pid) whenNotPaused onlyRole(ADMIN) {
+        synths[_synth].isActive = !synths[_synth].isActive;
     }
 }

@@ -49,12 +49,7 @@ contract Router is PausableAccessControl {
 
     uint256 opDecimals;
 
-    event DEXRebalancing(
-        uint8 pid,
-        uint256 kof,
-        uint256 amount,
-        uint indexed id
-    );
+    event EventA(uint8 type, uint256 amount, )
     event Deposit(address indexed pid, uint256 amount);
     event Withdraw(address indexed pid, uint256 amountSynth);
     event Bridge(uint256 amount);

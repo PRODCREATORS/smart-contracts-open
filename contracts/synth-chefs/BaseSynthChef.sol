@@ -53,20 +53,22 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     function deposit(
         uint256 _pid,
         address _tokenFrom,
-        uint256 _amount
+        uint256 _amount,
+        uint256 _opId
     ) public onlyRole(ADMIN_ROLE) whenNotPaused {
         if (msg.sender != address(this))
             IERC20(_tokenFrom).safeTransferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = _addLiquidity(_pid, _tokenFrom, _amount);
         _depositToFarm(_pid, amountLPs);
-        emit Deposit(_pid, amountLPs);
+        emit Deposit(_pid, amountLPs, _opId);
     }
 
     function withdraw(
         uint256 _pid,
         address _toToken,
         uint256 _amount,
-        address _to
+        address _to,
+        uint256 _opId
     ) public onlyRole(ADMIN_ROLE) whenNotPaused {
         _withdrawFromFarm(_pid, _amount);
         TokenAmount[] memory tokens = _removeLiquidity(_pid, _amount);
@@ -79,7 +81,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
             );
         }
         IERC20(_toToken).safeTransfer(_to, tokenAmount);
-        emit Withdraw(_pid, _amount);
+        emit Withdraw(_pid, _amount, _opId);
     }
 
     function compound(uint256 _pid) public onlyRole(ADMIN_ROLE) whenNotPaused {

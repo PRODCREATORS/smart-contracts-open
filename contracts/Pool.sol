@@ -56,12 +56,13 @@ contract Pool is PausableAccessControl {
     }
 
     function exec(
-        address token,
+        address receivedToken,
         address receiver,
         uint256 amount,
         bytes calldata data
     ) onlyRole(EXEC_CALLER_ROLE) {
         AnycallInfo memory info = abi.decode(data, (AnycallInfo));
+        require(receivedToken == address(token), "Wrong token received");
         emit Deposit(amount, info.opId);
     }
 }
