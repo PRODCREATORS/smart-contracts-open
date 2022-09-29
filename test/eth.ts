@@ -40,7 +40,7 @@ describe("ETH Synth Chef", function () {
 
     it("Deposit", async function () { 
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(0, weth.address, ethers.utils.parseEther("1.0"));
+        await chef.deposit(0, weth.address, ethers.utils.parseEther("1.0"), 0);
         expect(await chef.getBalanceOnFarm(0)).to.be.greaterThan(0);
     });
 
@@ -54,7 +54,7 @@ describe("ETH Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-        await chef.withdraw(0, "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", chef.getLPAmountOnFarm(0), owner.getAddress());
+        await chef.withdraw(0, "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", chef.getLPAmountOnFarm(0), owner.getAddress(), 0);
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

@@ -61,7 +61,8 @@ contract EntangleDEXOnDemand is AccessControl {
         chef.deposit(
             pid,
             address(opToken),
-            _amount
+            _amount,
+            0
         );
         factory.mint(
             block.chainid,
@@ -85,9 +86,9 @@ contract EntangleDEXOnDemand is AccessControl {
             block.chainid,
             address(chef),
             pid,
-            msg.sender,
-            _amount
+            _amount,
+            msg.sender
         );
-        chef.withdraw(pid, address(opToken), _amount, msg.sender);
+        chef.withdraw(pid, address(opToken), _amount, msg.sender, 0);
     }
 }

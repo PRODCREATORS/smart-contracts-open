@@ -69,7 +69,7 @@ describe("Fantom Synth Chef", function () {
 
     it("Deposit", async function () { 
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(PID, weth.address, ethers.utils.parseEther("0.05"));
+        await chef.deposit(PID, weth.address, ethers.utils.parseEther("0.05"), 0);
         expect(await chef.getBalanceOnFarm(PID)).to.be.greaterThan(0);
     });
     
@@ -83,7 +83,7 @@ describe("Fantom Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(PID);
-        await chef.withdraw(PID, STABLE_ADDR, chef.getLPAmountOnFarm(PID), owner.getAddress());
+        await chef.withdraw(PID, STABLE_ADDR, chef.getLPAmountOnFarm(PID), owner.getAddress(), 0);
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(PID);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

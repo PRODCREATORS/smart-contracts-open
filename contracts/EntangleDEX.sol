@@ -12,8 +12,6 @@ contract EntangleDEX is PausableAccessControl, Lender {
     using SafeERC20 for IERC20;
     using SafeERC20 for EntangleSynth;
 
-    IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
-
     uint256 public fee;
     uint256 public feeRate = 1e3;
     address public feeCollector;
@@ -33,10 +31,8 @@ contract EntangleDEX is PausableAccessControl, Lender {
      * @dev Sets the values for `synth`, `opToken` and `rate`.
      */
     constructor(
-        IERC20Metadata _opToken,
         address _feeCollector
     ) {
-        opToken = _opToken;
 
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(OWNER, OWNER);
@@ -53,10 +49,10 @@ contract EntangleDEX is PausableAccessControl, Lender {
     }
 
     function add(
-        EntangleSynth _synth,
+        EntangleSynth _synth
     ) public onlyRole(ADMIN) whenNotPaused {
         require(!synths[_synth].isActive, "Already added");
-        synths[_synth] = Synth({
+        synths[_synth] = SynthData({
             isActive: true 
         });
     }
@@ -75,30 +71,23 @@ contract EntangleDEX is PausableAccessControl, Lender {
         whenNotPaused
         returns(uint256 synthAmount)
     {
+        IERC20 opToken = _synth.opToken();
         uint256 fee_ = _amount * fee / feeRate;
         _amount -= fee_;
-        synthAmount = _synth.convertOpToSynth(_amount);
+        synthAmount = _synth.convertOpAmountToSynthAmount(_amount);
         opToken.safeTransferFrom(msg.sender, address(this), _amount);
         opToken.safeTransfer(feeCollector, fee_);
         _synth.safeTransfer(msg.sender, synthAmount);
     }
 
-    /**
-     * @notice Trade function to sell synth token.
-     * @param _amount The amount of the source token being traded.
-     * @param _pid pid of token
-     * Requirements:
-     *
-     * - the caller must have `BUYER` role.
-     *
-     */
     function sell(EntangleSynth _synth, uint256 _amount)
         public
-        exist(_pid)
+        exist(_synth)
         whenNotPaused 
         returns (uint256 opTokenAmount)
     {
-        opTokenAmount = _synth.convertSynthToOp(_amount);
+        IERC20 opToken = _synth.opToken();
+        opTokenAmount = _synth.convertSynthAmountToOpAmount(_amount);
         uint256 fee_ = opTokenAmount * fee / feeRate;
         opTokenAmount = opTokenAmount - fee_;
         _synth.safeTransferFrom(
@@ -129,7 +118,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
      *
      * - the caller must have admin role.
      */
-    function switchSynthState(EntangleSynth _synth) public exist(_pid) whenNotPaused onlyRole(ADMIN) {
+    function switchSynthState(EntangleSynth _synth) public exist(_synth) whenNotPaused onlyRole(ADMIN) {
         synths[_synth].isActive = !synths[_synth].isActive;
     }
 }

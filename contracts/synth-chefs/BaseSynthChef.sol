@@ -60,7 +60,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
             IERC20(_tokenFrom).safeTransferFrom(msg.sender, address(this), _amount);
         uint256 amountLPs = _addLiquidity(_pid, _tokenFrom, _amount);
         _depositToFarm(_pid, amountLPs);
-        emit Deposit(_pid, amountLPs, _opId);
+        emit Deposit(_pid, _amount, _opId);
     }
 
     function withdraw(
@@ -70,8 +70,10 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         address _to,
         uint256 _opId
     ) public onlyRole(ADMIN_ROLE) whenNotPaused {
-        _withdrawFromFarm(_pid, _amount);
-        TokenAmount[] memory tokens = _removeLiquidity(_pid, _amount);
+        uint256 _stablecoinAmount = _previewConvertTokens(_toToken, address(stablecoin), _amount);
+        uint256 _amountLP = _convertStablecoinAmountToLPAmount(_pid, _stablecoinAmount);
+        _withdrawFromFarm(_pid, _amountLP);
+        TokenAmount[] memory tokens = _removeLiquidity(_pid, _amountLP);
         uint256 tokenAmount = 0;
         for (uint i = 0; i < tokens.length; i++) {
             tokenAmount += _convertTokens(
@@ -93,7 +95,8 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
                 this.deposit(
                     _pid,
                     address(rewardTokens[i]),
-                    balance - feeAmount
+                    balance - feeAmount,
+                    0
                 );
                 IERC20(rewardTokens[i]).safeTransfer(feeCollector, feeAmount);
             }
@@ -133,6 +136,12 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
                 );
             }
         }
+    }
+
+    function _convertStablecoinAmountToLPAmount(uint256 _pid, uint256 _amount) internal view returns(uint256 amountLP) {
+        uint256 totalLPAmount = getLPAmountOnFarm(_pid);
+        uint256 totalStablecoinAmount = getBalanceOnFarm(_pid);
+        return totalLPAmount * _amount / totalStablecoinAmount;
     }
 
     function _harvest(uint256 _pid) internal virtual;

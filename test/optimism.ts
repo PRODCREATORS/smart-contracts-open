@@ -82,7 +82,7 @@ describe("Optimism Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(PID);
-        await chef.withdraw(PID, chef.stablecoin(), chef.getLPAmountOnFarm(PID), owner.getAddress());
+        await chef.withdraw(PID, chef.stablecoin(), chef.getLPAmountOnFarm(PID), owner.getAddress(), 0);
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(PID);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

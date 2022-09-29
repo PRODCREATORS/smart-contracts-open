@@ -65,7 +65,7 @@ describe("Avax Synth Chef", function () {
 
     it("Deposit", async function () { 
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(PID, weth.address, ethers.utils.parseEther("1.0"));
+        await chef.deposit(PID, weth.address, ethers.utils.parseEther("1.0"), 0);
         expect(await chef.getBalanceOnFarm(PID)).to.be.greaterThan(0);
     });
 
@@ -79,7 +79,7 @@ describe("Avax Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(PID);
-        await chef.withdraw(PID, "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", chef.getLPAmountOnFarm(PID), owner.getAddress());
+        await chef.withdraw(PID, "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", chef.getLPAmountOnFarm(PID), owner.getAddress(), 0);
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(PID);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

@@ -52,7 +52,7 @@ describe("Arbitrum Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-        await chef.withdraw(0, "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", chef.getLPAmountOnFarm(0), owner.getAddress());
+        await chef.withdraw(0, "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", (await chef.getBalanceOnFarm(0)).div(10), owner.getAddress());
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });

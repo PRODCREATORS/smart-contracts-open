@@ -37,7 +37,7 @@ describe("BSC Synth Chef", function () {
         wrapper = await UniswapWrapperFactory.deploy("0x10ED43C718714eb63d5aA57B78B54704E256024E", WETH_ADDR) as UniswapWrapper;
         weth = new ethers.Contract(WETH_ADDR, WETH_ABI, owner);
         console.log("Swapping ETH to WETH...");
-        await weth.deposit({ value: ethers.utils.parseEther("0.05")});
+        await weth.deposit({ value: ethers.utils.parseEther("2")});
         console.log("WETH balance:", await weth.balanceOf(owner.getAddress()));
         const ChefFactory = (await ethers.getContractFactory("BSCSynthChef")) as BSCSynthChef__factory;
         chef = (await ChefFactory.deploy("0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652",
@@ -66,7 +66,7 @@ describe("BSC Synth Chef", function () {
 
     it("Deposit", async function () {
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(PID, weth.address, ethers.utils.parseEther("1.0"));
+        await chef.deposit(PID, weth.address, ethers.utils.parseEther("1.0"), 0);
         expect(await chef.getBalanceOnFarm(PID)).to.be.greaterThan(0);
     });
 
@@ -80,7 +80,7 @@ describe("BSC Synth Chef", function () {
 
     it("Withdraw", async function () {
         let balanceBeforeWithdraw = await chef.getBalanceOnFarm(PID);
-        await chef.withdraw(PID, STABLE_ADDR, (await chef.getLPAmountOnFarm(PID)).div(10), owner.getAddress());
+        await chef.withdraw(PID, STABLE_ADDR, (await chef.getBalanceOnFarm(PID)).div(10), owner.getAddress(), 0);
         let balanceAfterWithdraw = await chef.getBalanceOnFarm(PID);
         expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
     });
