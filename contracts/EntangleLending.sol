@@ -35,7 +35,11 @@ contract EntangleLending is PausableAccessControl {
 
     uint256 private nextLoanId = 0;
 
-    function getLoan(uint256 amount, IERC20 token, ILender lender) external onlyRole(BORROWER_ROLE) whenNotPaused {
+    function getLoan(uint256 loanId) public view returns(Loan memory) {
+        return loans[loanId];
+    }
+
+    function borrow(uint256 amount, IERC20 token, ILender lender) external onlyRole(BORROWER_ROLE) whenNotPaused {
         require(lenders[address(lender)], "Lender is not authorized");
         loans[nextLoanId++] = Loan({
             amount: amount, 
@@ -47,7 +51,7 @@ contract EntangleLending is PausableAccessControl {
         emit GetLoan(token, amount, address(lender));
     }
 
-    function repayLoan(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
+    function repay(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan storage loan = loans[loanId];
         loan.token.safeTransferFrom(msg.sender, address(loan.lender), loan.amount);
         emit RepayLoan(loan.token, loan.amount, address(loan.lender));

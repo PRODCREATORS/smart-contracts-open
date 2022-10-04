@@ -35,6 +35,7 @@ interface IBridge {
 contract EntangleRouter is PausableAccessControl {
     using SafeERC20 for IERC20;
     using SafeERC20 for IERC20Metadata;
+    using SafeERC20 for EntangleSynth;
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
@@ -132,7 +133,7 @@ contract EntangleRouter is PausableAccessControl {
         if (IERC20(_token).allowance(address(this), address(chef)) < _amount) {
             IERC20(_token).safeIncreaseAllowance(address(chef), type(uint256).max);
         }
-        chef.deposit(_pid, _token, _amount, _opId);
+        chef.deposit(_pid, address(_token), _amount, _opId);
     }
 
     function bridgeToChain(
@@ -167,17 +168,17 @@ contract EntangleRouter is PausableAccessControl {
     }
 
     function borrow(uint256 amount, IERC20 token, ILender lender) external onlyRole(ADMIN) whenNotPaused {
-        lending.getLoan(amount, token, lender);
+        lending.borrow(amount, token, lender);
         token.safeTransfer(msg.sender, amount);
     }
 
     function repay(uint256 _loanID) external onlyRole(ADMIN) whenNotPaused {
-        EntangleLending.Loan loan = lending.loans(_loanID);
+        EntangleLending.Loan memory loan = lending.getLoan(_loanID);
         loan.token.safeTransferFrom(msg.sender, address(this), loan.amount);
         if (loan.token.allowance(address(this), address(lending)) < loan.amount) {
             loan.token.safeIncreaseAllowance(address(lending), type(uint256).max);
         }
-        lending.repayLoan(_loanID);
+        lending.repay(_loanID);
     }
 
     function checkBalanceSynth(
@@ -187,11 +188,12 @@ contract EntangleRouter is PausableAccessControl {
         return _synth.balanceOf(address(idex)) < _amount;
     }
 
-    function checkBalanceOpToken(uint256 _amount)
+    function checkBalanceOpToken(EntangleSynth _synth, uint256 _amount)
         internal
         view
         returns (bool)
     {
+        IERC20 opToken = _synth.opToken();
         opToken.balanceOf(address(idex)) < _amount;
     }
 }
