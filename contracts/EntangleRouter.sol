@@ -54,7 +54,7 @@ contract EntangleRouter is PausableAccessControl {
 
     enum EventType { BUY, SELL }
 
-    event EventA(EventType _type, uint256 amount);
+    event EventA(EventType _type, uint256 amount, address synth, uint256 k);
     event Bridge(uint256 amount);
 
     constructor(
@@ -155,15 +155,16 @@ contract EntangleRouter is PausableAccessControl {
         emit Bridge(amount);
     }
     
-    function checkEventA(EventType _type, EntangleSynth _synth) public {
-        uint256 synthBalance = _synth.balanceOf(address(this));
-        uint256 opBalance = _synth.opToken().balanceOf(address(this));
-        uint256 percent = opBalance * 100 / _synth.convertSynthAmountToOpAmount(_synth.totalSupply() - synthBalance);
-        if (percent > 33) {
-
+    function checkEventA(EntangleSynth _synth) public {
+        uint256 soldSynths = _synth.totalSupply() - _synth.balanceOf(address(this)); 
+        uint256 neededOpBalance = _synth.convertSynthAmountToOpAmount(soldSynths);
+        uint256 currentOpBalance = _synth.opToken().balanceOf(address(this));
+        uint256 k = 100 * currentOpBalance / neededOpBalance;
+        if (k < 50) {
+            emit EventA(EventType.SELL, neededOpBalance - currentOpBalance, address(_synth), k);
         } 
-        if (percent < 17) {
-
+        if (k > 150 ) {
+            emit EventA(EventType.BUY, currentOpBalance - neededOpBalance, address(_synth), k);
         }
     }
 
