@@ -15,11 +15,8 @@ contract EntangleDEXOnDemand is AccessControl {
     using SafeERC20 for IERC20;
     using SafeERC20 for EntangleSynth;
 
-    EntangleSynth public synth; //synth token
     EntangleSynthFactory public factory; //synth factory
-    IERC20Metadata public opToken; //token which will be paid for synth and will be get after selling synth
-    BaseSynthChef public chef; //masterchef
-    uint256 public pid; // poolID at synth chef
+    BaseSynthChef public chef; //chef
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
@@ -29,22 +26,15 @@ contract EntangleDEXOnDemand is AccessControl {
      * @dev Sets the values for `synth`, `pid`,`factory`,`opToken`,`rate` and `chef`.
      */
     constructor(
-        uint256 _pid,
         EntangleSynthFactory _factory,
         BaseSynthChef _chef
     ) {
         factory = _factory;
         chef = _chef;
-        pid = _pid;
-        synth = factory.synths(block.chainid, address(chef), _pid);
-        opToken = IERC20Metadata(address(synth.opToken()));
 
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(BUYER, ADMIN_ROLE);
         _setupRole(OWNER_ROLE, msg.sender);
-
-        opToken.safeIncreaseAllowance(address(chef), type(uint256).max);
-        synth.safeIncreaseAllowance(address(chef), type(uint256).max);
     }
 
     /**
@@ -55,11 +45,17 @@ contract EntangleDEXOnDemand is AccessControl {
      *
      * - the caller must have `BUYER` role.
      */
-    function buy(uint256 _amount) external onlyRole(BUYER) {
+    function buy(uint256 _pid, uint256 _amount) external onlyRole(BUYER) {
+        EntangleSynth synth = factory.synths(block.chainid, address(chef), _pid);
+        IERC20 opToken = IERC20(address(synth.opToken()));
         uint256 amountSynth = synth.convertOpAmountToSynthAmount(_amount);
+
         opToken.safeTransferFrom(msg.sender, address(this), _amount);
+        if (opToken.allowance(address(this), address(chef)) < _amount) {
+            opToken.safeIncreaseAllowance(address(chef), type(uint256).max);
+        }
         chef.deposit(
-            pid,
+            _pid,
             address(opToken),
             _amount,
             0
@@ -67,7 +63,7 @@ contract EntangleDEXOnDemand is AccessControl {
         factory.mint(
             block.chainid,
             address(chef),
-            pid,
+            _pid,
             amountSynth,
             msg.sender
         );
@@ -81,14 +77,19 @@ contract EntangleDEXOnDemand is AccessControl {
      *
      * - the caller must have `BUYER` role.
      */
-    function sell(uint256 _amount) external onlyRole(BUYER) {
+    function sell(uint256 _pid, uint256 _amount) external onlyRole(BUYER) {
+        EntangleSynth synth = factory.synths(block.chainid, address(chef), _pid);
+        IERC20 opToken = IERC20(address(synth.opToken()));
+        if (synth.allowance(address(this), address(factory)) < _amount) {
+            opToken.safeIncreaseAllowance(address(factory), type(uint256).max);
+        }
         factory.burn(
             block.chainid,
             address(chef),
-            pid,
+            _pid,
             _amount,
             msg.sender
         );
-        chef.withdraw(pid, address(opToken), _amount, msg.sender, 0);
+        chef.withdraw(_pid, address(opToken), _amount, msg.sender, 0);
     }
 }

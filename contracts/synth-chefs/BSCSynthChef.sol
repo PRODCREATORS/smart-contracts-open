@@ -131,7 +131,6 @@ contract BSCSynthChef is BaseSynthChef {
             uint256 amount1
         )
     {
-        console.log("%s", _pid);
         address lpPair = chef.lpToken(_pid);
         token0 = IPair(lpPair).token0();
         token1 = IPair(lpPair).token1();

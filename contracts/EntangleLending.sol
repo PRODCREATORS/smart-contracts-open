@@ -24,14 +24,14 @@ contract EntangleLending is PausableAccessControl {
     struct Loan {
         uint256 amount;
         IERC20 token;
-        address borrower;
         ILender lender;
     }
 
     mapping(address => bool) public lenders;
     mapping(uint256 => Loan) public loans;
-    event GetLoan(IERC20 token, uint256 amount, address indexed creditor);
-    event RepayLoan(IERC20 token, uint256 amount, address indexed creditor);
+
+    event GetLoan(uint256 loanId, uint256 opId);
+    event RepayLoan(uint256 loanId);
 
     uint256 private nextLoanId = 0;
 
@@ -39,22 +39,22 @@ contract EntangleLending is PausableAccessControl {
         return loans[loanId];
     }
 
-    function borrow(uint256 amount, IERC20 token, ILender lender) external onlyRole(BORROWER_ROLE) whenNotPaused {
+    function borrow(uint256 amount, IERC20 token, ILender lender, address receiver, uint256 opId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         require(lenders[address(lender)], "Lender is not authorized");
-        loans[nextLoanId++] = Loan({
+        loans[nextLoanId] = Loan({
             amount: amount, 
-            token: token, 
-            borrower: msg.sender, 
+            token: token,
             lender: lender
             });
-        lender.borrow(token, amount, msg.sender);
-        emit GetLoan(token, amount, address(lender));
+        lender.borrow(token, amount, receiver);
+        emit GetLoan(nextLoanId, opId);
+        nextLoanId++;
     }
 
     function repay(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan storage loan = loans[loanId];
         loan.token.safeTransferFrom(msg.sender, address(loan.lender), loan.amount);
-        emit RepayLoan(loan.token, loan.amount, address(loan.lender));
+        emit RepayLoan(loanId);
         delete loans[loanId];
     }
 }
