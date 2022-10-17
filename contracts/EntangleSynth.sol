@@ -21,7 +21,7 @@ contract EntangleSynth is ERC20, AccessControl {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    constructor(uint256 _chainId, address _synthChef, uint256 _pid, IERC20 _opToken) ERC20("ETHSynth", "SYNTH") {
+    constructor(uint256 _chainId, address _synthChef, uint256 _pid, IERC20 _opToken) ERC20("ENTANGLESynth", "SYNTH") {
         opToken = _opToken;
         chainId = _chainId;
         synthChef = _synthChef;

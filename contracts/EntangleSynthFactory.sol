@@ -11,6 +11,8 @@ contract EntangleSynthFactory is PausableAccessControl {
     bytes32 public constant MINT_ROLE = keccak256("MINT");
 
     event CreatedSynth(address synth);
+    event Mint(uint256 amount, address to, uint256 opId);
+    event Burn(uint256 amount, address from, uint256 opId);
 
     mapping(uint256 => mapping(address => mapping(uint256 => EntangleSynth))) public synths; // chainId -> synthChef -> pid
 
@@ -72,10 +74,12 @@ contract EntangleSynthFactory is PausableAccessControl {
         address _synthChef,
         uint256 _pid,
         uint256 _amount,
-        address _to
+        address _to,
+        uint256 _opId
     ) external onlyRole(MINT_ROLE) whenNotPaused {
         EntangleSynth synth = synths[_chainId][_synthChef][_pid];
         EntangleSynth(synth).mint(_to, _amount);
+        emit Mint(_amount, _to, _opId);
     }
 
     /**
@@ -93,9 +97,11 @@ contract EntangleSynthFactory is PausableAccessControl {
         address _synthChef,
         uint256 _pid,
         uint256 _amount,
-        address _from
+        address _from,
+        uint256 _opId
     ) external onlyRole(MINT_ROLE) whenNotPaused {
         EntangleSynth synth = synths[_chainId][_synthChef][_pid];
         EntangleSynth(synth).burn(_from, _amount);
+        emit Burn(_amount, _from, _opId);
     }
 }

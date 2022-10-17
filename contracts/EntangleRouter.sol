@@ -54,8 +54,9 @@ contract EntangleRouter is PausableAccessControl {
 
     enum EventType { BUY, SELL }
 
-    event EventA(EventType _type, uint256 amount, address synth, uint256 k);
+    event EventA(EventType _type, uint256 amount, uint256 pid, uint256 k);
     event EventBC(EventType _type, uint256 amount, uint256 pid, address user);
+    event DepositDEX(uint256 amount, uint256 opId);
 
     constructor(
         EntanglePool _pool,
@@ -88,7 +89,7 @@ contract EntangleRouter is PausableAccessControl {
             opToken.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
         if (synth.convertOpAmountToSynthAmount(amountOp) < synth.balanceOf(address(idex))) {
-            emit EventBC(EventType.BUY, synthAmount, synth.pid(), msg.sender);
+            emit EventBC(EventType.BUY, amountOp, synth.pid(), msg.sender);
         }
         else {
             synthAmount = idex.buy(synth, amountOp);
@@ -107,7 +108,7 @@ contract EntangleRouter is PausableAccessControl {
             synth.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
         if (synth.convertSynthAmountToOpAmount(amount) < synth.opToken().balanceOf(address(idex))) {
-            emit EventBC(EventType.SELL, amount, synth.pid(), msg.sender);
+            emit EventBC(EventType.SELL, synth.convertSynthAmountToOpAmount(amount), synth.pid(), msg.sender);
         }
         else {
             opTokenAmount = idex.sell(synth, amount);
@@ -146,13 +147,18 @@ contract EntangleRouter is PausableAccessControl {
         chef.deposit(pid, address(token), amount, opId);
     }
 
+    function withdrawFromPool(address to, IERC20 token, uint256 amount, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+        pool.withdrawToken(amount, token, to);
+        emit DepositDEX(amount, opId);
+    }
+
     function bridgeToChain(
         address token,
         string memory to,
         uint256 amount,
         uint256 toChainID,
         string memory anycallProxy,
-        bytes calldata data
+        bytes32 data
     ) external onlyRole(ADMIN) whenNotPaused {
         bridge.anySwapOutAndCall(
             token,
@@ -160,7 +166,7 @@ contract EntangleRouter is PausableAccessControl {
             amount,
             toChainID,
             anycallProxy,
-            data
+            bytes.concat(data)
         );
     }
     
@@ -170,10 +176,10 @@ contract EntangleRouter is PausableAccessControl {
         uint256 currentOpBalance = synth.opToken().balanceOf(address(idex));
         uint256 k = 100 * currentOpBalance / neededOpBalance;
         if (k < 50) {
-            emit EventA(EventType.SELL, neededOpBalance - currentOpBalance, address(synth), k);
+            emit EventA(EventType.SELL, neededOpBalance - currentOpBalance, synth.pid(), k);
         } 
         if (k > 150 ) {
-            emit EventA(EventType.BUY, currentOpBalance - neededOpBalance, address(synth), k);
+            emit EventA(EventType.BUY, currentOpBalance - neededOpBalance, synth.pid(), k);
         }
     }
 
@@ -211,6 +217,6 @@ contract EntangleRouter is PausableAccessControl {
         returns (bool)
     {
         IERC20 opToken = _synth.opToken();
-        opToken.balanceOf(address(idex)) < _amount;
+        return opToken.balanceOf(address(idex)) < _amount;
     }
 }
