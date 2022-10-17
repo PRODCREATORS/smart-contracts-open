@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/ILender.sol";
 import "./PausableAccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "./interfaces/IPausable.sol";
 
 
 contract EntangleLending is PausableAccessControl {
@@ -46,6 +47,7 @@ contract EntangleLending is PausableAccessControl {
             token: token,
             lender: lender
             });
+        IPausable(address(lender)).pause();
         lender.borrow(token, amount, receiver);
         emit GetLoan(nextLoanId, opId);
         nextLoanId++;
@@ -53,6 +55,7 @@ contract EntangleLending is PausableAccessControl {
 
     function repay(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan storage loan = loans[loanId];
+        IPausable(address(loan.lender)).unpause();
         loan.token.safeTransferFrom(msg.sender, address(loan.lender), loan.amount);
         emit RepayLoan(loanId);
         delete loans[loanId];
