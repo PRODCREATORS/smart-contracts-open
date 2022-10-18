@@ -12,6 +12,8 @@ import "./synth-chefs/BaseSynthChef.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntanglePool.sol";
 import "./EntangleLending.sol";
+import "hardhat/console.sol";
+
 
 interface Ipool {
     function depositToken(uint256 amount) external;
@@ -58,6 +60,21 @@ contract EntangleRouter is PausableAccessControl {
 
     enum EventType { BUY, SELL }
 
+    struct BridgeParams {
+        address tokenToBridge;
+        address to;
+        uint256 chainId;
+        address token;
+        uint8 tokenIndexFrom;
+        uint8 tokenIndexTo;
+        uint256 dx;
+        uint256 minDy;
+        uint256 deadline;
+        uint8 liqTokenIndex;
+        uint256 liqMinAmount;
+        uint256 liqDeadline;
+    }
+
     event EventA(EventType _type, uint256 amount, address synth, uint256 k);
     event EventBC(EventType _type, uint256 amount, uint256 pid, address user);
 
@@ -91,7 +108,7 @@ contract EntangleRouter is PausableAccessControl {
         if (opToken.allowance(address(this), address(idex)) < amountOp) {
             opToken.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
-        if (synth.convertOpAmountToSynthAmount(amountOp) < synth.balanceOf(address(idex))) {
+        if (synth.convertOpAmountToSynthAmount(amountOp) > synth.balanceOf(address(idex))) {
             emit EventBC(EventType.BUY, synthAmount, synth.pid(), msg.sender);
         }
         else {
@@ -110,7 +127,7 @@ contract EntangleRouter is PausableAccessControl {
         if (synth.allowance(address(this), address(idex)) < amount) {
             synth.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
-        if (synth.convertSynthAmountToOpAmount(amount) < synth.opToken().balanceOf(address(idex))) {
+        if (synth.convertSynthAmountToOpAmount(amount) > synth.opToken().balanceOf(address(idex))) {
             emit EventBC(EventType.SELL, amount, synth.pid(), msg.sender);
         }
         else {
@@ -143,7 +160,7 @@ contract EntangleRouter is PausableAccessControl {
     }
 
     function depositFromPool(uint256 amount, IERC20 token, uint256 pid, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
-        pool.withdrawToken(amount, token, address(this));
+        pool.withdrawToken(amount, token, address(this), opId);
         if (token.allowance(address(this), address(chef)) < amount) {
             token.safeIncreaseAllowance(address(chef), type(uint256).max);
         }
@@ -151,33 +168,24 @@ contract EntangleRouter is PausableAccessControl {
     }
 
     function bridgeToChain(
-        address to,
-        uint256 chainId,
-        address token,
-        uint8 tokenIndexFrom,
-        uint8 tokenIndexTo,
-        uint256 dx,
-        uint256 minDy,
-        uint256 deadline,
-        uint8 liqTokenIndex,
-        uint256 liqMinAmount,
-        uint256 liqDeadline
+        BridgeParams memory params
     ) external onlyRole(ADMIN) whenNotPaused {
-        if (IERC20(token).allowance(address(this), address(bridge)) < dx) {
-            IERC20(token).safeIncreaseAllowance(address(bridge), type(uint256).max);
+        IERC20(params.tokenToBridge).safeTransferFrom(msg.sender, address(this), params.dx);
+        if (IERC20(params.tokenToBridge).allowance(address(this), address(bridge)) < params.dx) {
+            IERC20(params.tokenToBridge).safeIncreaseAllowance(address(bridge), type(uint256).max);
         }
         bridge.swapAndRedeemAndRemove(
-            to,
-            chainId,
-            token,
-            tokenIndexFrom,
-            tokenIndexTo,
-            dx,
-            minDy,
-            deadline,
-            liqTokenIndex,
-            liqMinAmount,
-            liqDeadline
+            params.to,
+            params.chainId,
+            params.token,
+            params.tokenIndexFrom,
+            params.tokenIndexTo,
+            params.dx,
+            params.minDy,
+            params.deadline,
+            params.liqTokenIndex,
+            params.liqMinAmount,
+            params.liqDeadline
         );
     }
     
