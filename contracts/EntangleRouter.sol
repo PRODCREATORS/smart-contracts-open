@@ -22,14 +22,18 @@ interface Ifactory {
 }
 
 interface IBridge {
-    function anySwapOutAndCall(
+    function swapAndRedeemAndRemove(
+        address to,
+        uint256 chainId,
         address token,
-        string memory to,
-        uint256 amount,
-        uint256 toChainID,
-        string memory anycallProxy,
-        bytes calldata data
-    ) external;
+        uint8 tokenIndexFrom,
+        uint8 tokenIndexTo,
+        uint256 dx,
+        uint256 minDy,
+        uint256 deadline,
+        uint8 liqTokenIndex,
+        uint256 liqMinAmount,
+        uint256 liqDeadline) external;
 }
 
 contract EntangleRouter is PausableAccessControl {
@@ -147,20 +151,33 @@ contract EntangleRouter is PausableAccessControl {
     }
 
     function bridgeToChain(
+        address to,
+        uint256 chainId,
         address token,
-        string memory to,
-        uint256 amount,
-        uint256 toChainID,
-        string memory anycallProxy,
-        bytes calldata data
+        uint8 tokenIndexFrom,
+        uint8 tokenIndexTo,
+        uint256 dx,
+        uint256 minDy,
+        uint256 deadline,
+        uint8 liqTokenIndex,
+        uint256 liqMinAmount,
+        uint256 liqDeadline
     ) external onlyRole(ADMIN) whenNotPaused {
-        bridge.anySwapOutAndCall(
-            token,
+        if (IERC20(token).allowance(address(this), address(bridge)) < dx) {
+            IERC20(token).safeIncreaseAllowance(address(bridge), type(uint256).max);
+        }
+        bridge.swapAndRedeemAndRemove(
             to,
-            amount,
-            toChainID,
-            anycallProxy,
-            data
+            chainId,
+            token,
+            tokenIndexFrom,
+            tokenIndexTo,
+            dx,
+            minDy,
+            deadline,
+            liqTokenIndex,
+            liqMinAmount,
+            liqDeadline
         );
     }
     
@@ -189,9 +206,9 @@ contract EntangleRouter is PausableAccessControl {
         lending.borrow(amount, token, lender, receiver, opId);
     }
 
-    function repayFromPool(uint256 loanId) external onlyRole(ADMIN) whenNotPaused {
+    function repayFromPool(uint256 loanId, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
         EntangleLending.Loan memory loan = lending.getLoan(loanId);
-        pool.withdrawToken(loan.amount, loan.token, address(this));
+        pool.withdrawToken(loan.amount, loan.token, address(this), opId);
         if (loan.token.allowance(address(this), address(lending)) < loan.amount) {
             loan.token.safeIncreaseAllowance(address(lending), type(uint256).max);
         }

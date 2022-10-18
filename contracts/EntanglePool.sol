@@ -28,16 +28,16 @@ contract EntanglePool is PausableAccessControl {
     }
     
     event Deposit(uint256 amount, address token, uint256 opId);
-    event Withdraw(uint256 amount, address token);
+    event Withdraw(uint256 amount, address token, uint256 opId);
 
     function depositToken(uint256 amount, IERC20 token, uint256 opId) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
         token.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposit(amount, address(token), opId);
     }
 
-    function withdrawToken(uint256 amount, IERC20 token, address to) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
+    function withdrawToken(uint256 amount, IERC20 token, address to, uint256 opId) external onlyRole(DEPOSITER_ROLE) whenNotPaused {
         token.safeTransfer(to, amount);
-        emit Withdraw(amount, address(token));
+        emit Withdraw(amount, address(token), opId);
     }
 
     function exec(
