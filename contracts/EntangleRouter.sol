@@ -56,7 +56,6 @@ contract EntangleRouter is PausableAccessControl {
 
     event EventA(EventType _type, uint256 amount, uint256 pid, uint256 k);
     event EventBC(EventType _type, uint256 amount, uint256 pid, address user);
-    event WithdrawFromPool(uint256 amount, uint256 opId);
 
     constructor(
         EntanglePool _pool,
@@ -147,9 +146,8 @@ contract EntangleRouter is PausableAccessControl {
         chef.deposit(pid, address(token), amount, opId);
     }
 
-    function withdrawFromPool(address to, IERC20 token, uint256 amount, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function withdrawFromPool(address to, IERC20 token, uint256 amount) external onlyRole(ADMIN) whenNotPaused {
         pool.withdrawToken(amount, token, to);
-        emit WithdrawFromPool(amount, opId);
     }
 
     function bridgeToChain(
