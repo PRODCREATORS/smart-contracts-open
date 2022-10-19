@@ -45,7 +45,6 @@ describe("Fantom Synth Chef", function () {
     const BRIDGE_ADDR = "0xB003e75f7E0B5365e814302192E99b4EE08c0DEd";
     
     before(async function () {
-        let signers = await ethers.getSigners();
         owner = (await ethers.getSigners())[0];
         chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 

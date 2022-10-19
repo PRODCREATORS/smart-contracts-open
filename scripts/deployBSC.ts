@@ -42,10 +42,10 @@ async function main() {
     let idex = IDEXFactory.attach("0x743e593eCA668dab9886d25BAE6A957545b9eB5D");
     let router = await RouterFactory.deploy(pool.address, idex.address, chef.address, factory.address, lending.address, BRIDGE_ADDR);
 
-    //await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
-    //await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
-    //await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
-   // await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
+    await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
+    await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
+    await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
+    await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
     await (await router.grantRole(router.ADMIN(), owner.getAddress())).wait();
     await (await lending.grantRole(lending.BORROWER_ROLE(), router.address)).wait();
     await (await pool.grantRole(pool.DEPOSITER_ROLE(), router.address)).wait();
