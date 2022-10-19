@@ -65,7 +65,8 @@ contract EntangleDEXOnDemand is AccessControl {
             address(chef),
             _pid,
             amountSynth,
-            msg.sender
+            msg.sender,
+            0
         );
     }
 
@@ -88,7 +89,8 @@ contract EntangleDEXOnDemand is AccessControl {
             address(chef),
             _pid,
             _amount,
-            msg.sender
+            msg.sender,
+            0
         );
         chef.withdraw(_pid, address(opToken), _amount, msg.sender, 0);
     }
