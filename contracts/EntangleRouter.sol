@@ -24,18 +24,19 @@ interface Ifactory {
 }
 
 interface IBridge {
-    function swapAndRedeemAndRemove(
+    function swapAndRedeemAndSwap(
         address to,
         uint256 chainId,
-        address token,
+        IERC20 token,
         uint8 tokenIndexFrom,
         uint8 tokenIndexTo,
         uint256 dx,
         uint256 minDy,
         uint256 deadline,
-        uint8 liqTokenIndex,
-        uint256 liqMinAmount,
-        uint256 liqDeadline) external;
+        uint8 swapTokenIndexFrom,
+        uint8 swapTokenIndexTo,
+        uint256 swapMinDy,
+        uint256 swapDeadline) external;
 }
 
 contract EntangleRouter is PausableAccessControl {
@@ -61,18 +62,19 @@ contract EntangleRouter is PausableAccessControl {
     enum EventType { BUY, SELL }
 
     struct BridgeParams {
-        address tokenToBridge;
+        IERC20 tokenToBridge;
         address to;
         uint256 chainId;
-        address token;
+        IERC20 token;
         uint8 tokenIndexFrom;
         uint8 tokenIndexTo;
         uint256 dx;
         uint256 minDy;
         uint256 deadline;
-        uint8 liqTokenIndex;
-        uint256 liqMinAmount;
-        uint256 liqDeadline;
+        uint8 swapTokenIndexFrom;
+        uint8 swapTokenIndexTo;
+        uint256 swapMinDy;
+        uint256 swapDeadline;
     }
 
     event EventA(EventType _type, uint256 amount, address synth, uint256 k);
@@ -170,11 +172,10 @@ contract EntangleRouter is PausableAccessControl {
     function bridgeToChain(
         BridgeParams memory params
     ) external onlyRole(ADMIN) whenNotPaused {
-        IERC20(params.tokenToBridge).safeTransferFrom(msg.sender, address(this), params.dx);
-        if (IERC20(params.tokenToBridge).allowance(address(this), address(bridge)) < params.dx) {
-            IERC20(params.tokenToBridge).safeIncreaseAllowance(address(bridge), type(uint256).max);
+        if (params.tokenToBridge.allowance(address(this), address(bridge)) < params.dx) {
+            params.tokenToBridge.safeIncreaseAllowance(address(bridge), type(uint256).max);
         }
-        bridge.swapAndRedeemAndRemove(
+        bridge.swapAndRedeemAndSwap(
             params.to,
             params.chainId,
             params.token,
@@ -183,9 +184,10 @@ contract EntangleRouter is PausableAccessControl {
             params.dx,
             params.minDy,
             params.deadline,
-            params.liqTokenIndex,
-            params.liqMinAmount,
-            params.liqDeadline
+            params.swapTokenIndexFrom,
+            params.swapTokenIndexTo,
+            params.swapMinDy,
+            params.swapDeadline
         );
     }
     
@@ -221,21 +223,5 @@ contract EntangleRouter is PausableAccessControl {
             loan.token.safeIncreaseAllowance(address(lending), type(uint256).max);
         }
         lending.repay(loanId);
-    }
-
-    function checkBalanceSynth(
-        EntangleSynth _synth,
-        uint256 _amount
-    ) internal view returns (bool) {
-        return _synth.balanceOf(address(idex)) < _amount;
-    }
-
-    function checkBalanceOpToken(EntangleSynth _synth, uint256 _amount)
-        internal
-        view
-        returns (bool)
-    {
-        IERC20 opToken = _synth.opToken();
-        opToken.balanceOf(address(idex)) < _amount;
     }
 }
