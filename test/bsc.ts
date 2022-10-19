@@ -1,6 +1,6 @@
 import { UniswapWrapper__factory } from '../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory'
 import { expect } from "chai";
-import { Signer, Contract } from "ethers";
+import { Signer, Contract, BigNumber } from "ethers";
 import { ethers } from "hardhat";
 import { BSCSynthChef,} from '../typechain-types/contracts/synth-chefs/BSCSynthChef.sol';
 import { BSCSynthChef__factory } from '../typechain-types/factories/contracts/synth-chefs/BSCSynthChef.sol';
@@ -67,7 +67,7 @@ describe("BSC Synth Chef", function () {
         factory = await SynthFactoryFactory.deploy();
         DEXonDemand = await DEXonDemandFactory.deploy(factory.address, chef.address);
         lending = await LendingFactory.deploy();
-        pool = await PoolFactory.deploy(BRIDGE_ADDR);
+        pool = await PoolFactory.deploy();
         idex = await IDEXFactory.deploy(owner.getAddress());
         router = await RouterFactory.deploy(pool.address, idex.address, chef.address, factory.address, lending.address, BRIDGE_ADDR);
 
@@ -99,6 +99,8 @@ describe("BSC Synth Chef", function () {
         await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR);
         synth = EntangleSynth__factory.connect(addr, owner);
         await synth.setPrice("2000000");
+
+        await idex.add(synth.address);
     });
 
     it("Deposit", async function () {
@@ -123,18 +125,36 @@ describe("BSC Synth Chef", function () {
     });
 
     it("Mint from factory", async function () {
-        await factory.mint(chainId, chef.address, PID, "1000000000000000000", owner.getAddress());
-        expect(await synth.totalSupply()).to.be.equal("1000000000000000000");
+        let supply = BigNumber.from(10).pow(await synth.decimals() + 6);
+        await factory.mint(chainId, chef.address, PID, supply, owner.getAddress());
+        expect(await synth.totalSupply()).to.be.equal(supply);
+        await synth.transfer(idex.address, supply)
     });
 
     it("Buy at DEX on Demand", async function () {
+        let balanceBefore = await synth.balanceOf(owner.getAddress());
         let ERC20Factory = (await ethers.getContractFactory("ERC20")) as ERC20__factory;
         let weth = ERC20Factory.attach(WETH_ADDR);
         await weth.approve(wrapper.address, ethers.constants.MaxUint256);
         await wrapper.convert(WETH_ADDR, STABLE_ADDR, ethers.utils.parseEther("0.05"));
         let stable = ERC20Factory.attach(STABLE_ADDR);
         await stable.approve(DEXonDemand.address, ethers.constants.MaxUint256);
-        await DEXonDemand.buy(PID, stable.balanceOf(owner.getAddress()));
+        await DEXonDemand.buy(PID, "10000000");
+        expect(await synth.balanceOf(owner.getAddress())).to.be.greaterThan(balanceBefore);
+    });
+
+    it("Buy at DEX", async function () {
+        let balanceBefore = await synth.balanceOf(owner.getAddress());
+        await stable.approve(router.address, ethers.constants.MaxUint256);
+        await router.buy(synth.address, BigNumber.from("10000000"));
+        expect(await synth.balanceOf(owner.getAddress())).to.be.greaterThan(balanceBefore);
+    });
+
+    it("Sell at DEX", async function () {
+        let balanceBefore = await synth.balanceOf(owner.getAddress());
+        await synth.approve(router.address, ethers.constants.MaxUint256);
+        await router.sell(synth.address, BigNumber.from("5000000000000000000"));
+        expect(await synth.balanceOf(owner.getAddress())).to.be.lessThan(balanceBefore);
     });
 
     it("Deposit to pool", async function () {

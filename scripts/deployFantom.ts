@@ -1,7 +1,7 @@
 import hre from "hardhat";
 import { UniswapWrapper__factory } from '../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory'
 import { ethers } from "hardhat";
-import { BSCSynthChef__factory } from '../typechain-types/factories/contracts/synth-chefs/BSCSynthChef.sol';
+import { FantomSynthChef__factory } from '../typechain-types/factories/contracts/synth-chefs/FantomSynthChef.sol';
 import { UniswapWrapper } from '../typechain-types/contracts/dex-wrappers/UniswapWrapper';
 import { EntangleSynthFactory__factory } from "../typechain-types/factories/contracts/EntangleSynthFactory__factory";
 import { EntangleSynth__factory } from "../typechain-types/factories/contracts/EntangleSynth__factory";
@@ -13,11 +13,10 @@ import { EntangleDEX__factory } from "../typechain-types/factories/contracts/Ent
 
 
 async function main() {
-    const PID = 7;
-    const WETH_ADDR = "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c";
-    const STABLE_ADDR = "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d";
-    const BRIDGE_ADDR = "0x749F37Df06A99D6A8E065dd065f8cF947ca23697";
-    const UNISWAP_ROUTER = "0x10ED43C718714eb63d5aA57B78B54704E256024E";
+    const PID = 0;
+    const WETH_ADDR = "0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83";
+    const STABLE_ADDR = "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75";
+    const BRIDGE_ADDR = "0xB003e75f7E0B5365e814302192E99b4EE08c0DEd";
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -25,22 +24,32 @@ async function main() {
     const PoolFactory = (await ethers.getContractFactory("EntanglePool")) as EntanglePool__factory;
     const RouterFactory = (await ethers.getContractFactory("EntangleRouter")) as EntangleRouter__factory;
     const UniswapWrapperFactory = await ethers.getContractFactory("UniswapWrapper") as UniswapWrapper__factory; 
-    const ChefFactory = (await ethers.getContractFactory("BSCSynthChef")) as BSCSynthChef__factory;
+    const ChefFactory = (await ethers.getContractFactory("FantomSynthChef")) as FantomSynthChef__factory;
     const SynthFactoryFactory = (await ethers.getContractFactory("EntangleSynthFactory")) as EntangleSynthFactory__factory;
     const DEXonDemandFactory = (await ethers.getContractFactory("EntangleDEXOnDemand")) as EntangleDEXOnDemand__factory;
     const IDEXFactory = (await ethers.getContractFactory("EntangleDEX")) as EntangleDEX__factory;
 
-    let wrapper = UniswapWrapperFactory.attach("0x417fE8A5AD07Cb9A0795E5b35af4ff8400CA4A80");
-    
-    let chef = ChefFactory.attach("0xcC7BF40513Ff55C0Fc3811F116f58fEE0c201737");
-
-    let factory = SynthFactoryFactory.attach("0x1E07aba46216C032E2Cea0771C14A9a1F7e711D8");
-
-    let DEXonDemand = DEXonDemandFactory.attach("0xe4Ba9D99139FAA768f0D647A9970EE98f0fE7876");
-    let lending = LendingFactory.attach("0xEF41D8901427ddE4367298AcCbb7818adf5b5938");
-    let pool = PoolFactory.attach("0x4ddf5e8A44670333FdCFF76b5ff863Ac30738767");
-    let idex = IDEXFactory.attach("0x743e593eCA668dab9886d25BAE6A957545b9eB5D");
+    let wrapper = await UniswapWrapperFactory.deploy("0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506", WETH_ADDR) as UniswapWrapper;
+    await new Promise(f => setTimeout(f, 10000));
+    let chef = await ChefFactory.deploy("0x09855B4ef0b9df961ED097EF50172be3e6F13665",
+        wrapper.address,
+        STABLE_ADDR,
+        ["0x5Cc61A78F164885776AA610fb0FE1257df78E59B"],
+        "1",
+        await owner.getAddress());
+    await new Promise(f => setTimeout(f, 10000));
+    let factory = await SynthFactoryFactory.deploy();
+    await new Promise(f => setTimeout(f, 10000));
+    let DEXonDemand = await DEXonDemandFactory.deploy(factory.address, chef.address);
+    await new Promise(f => setTimeout(f, 10000));
+    let lending = await LendingFactory.deploy();
+    await new Promise(f => setTimeout(f, 10000));
+    let pool = await PoolFactory.deploy();
+    await new Promise(f => setTimeout(f, 10000));
+    let idex = await IDEXFactory.deploy(owner.getAddress());
+    await new Promise(f => setTimeout(f, 10000));
     let router = await RouterFactory.deploy(pool.address, idex.address, chef.address, factory.address, lending.address, BRIDGE_ADDR);
+    await new Promise(f => setTimeout(f, 10000));
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
@@ -57,21 +66,18 @@ async function main() {
     await (await chef.grantRole(chef.ADMIN_ROLE(), router.address)).wait();
     await (await factory.grantRole(factory.MINT_ROLE(), DEXonDemand.address)).wait();
 
+    await (await chef.addPool("0x40DEa26Dd3a0d549dC5Ecd4522045e8AD02f83FB",
+        "0x9ad5E3Fcc5a65D3675139e50C7a20E6f30Fd80A0",
+        "0x04068da6c83afcfa0e13ba15a6696662335d5b75",
+        "0x049d68029688eabf473097a2fc38ef61633a3c7a",
+        true)).wait();
+
     let addr = await factory.previewSynthAddress(chainId, chef.address, PID, STABLE_ADDR);
     await (await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR)).wait();
     let synth = EntangleSynth__factory.connect(addr, owner);
-    await (await synth.setPrice("10000000")).wait();
+    await (await synth.setPrice("2000000")).wait();
 
     await (await idex.add(synth.address)).wait();
-
-    console.log("Wrapper:", wrapper.address);
-    console.log("Synth chef:", chef.address);
-    console.log("Factory:", factory.address);
-    console.log("DEX on demand:", DEXonDemand.address);
-    console.log("Router:", router.address);
-    console.log("DEX:", idex.address);
-    console.log("Pool:", pool.address);
-    console.log("Lending:", lending.address);
 }
 
 main().catch((error) => {
