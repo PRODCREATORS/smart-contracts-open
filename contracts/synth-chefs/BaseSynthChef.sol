@@ -56,10 +56,14 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         uint256 _amount,
         uint256 _opId
     ) public onlyRole(ADMIN_ROLE) whenNotPaused {
+        console.log("stat");
         if (msg.sender != address(this))
             IERC20(_tokenFrom).safeTransferFrom(msg.sender, address(this), _amount);
+        console.log("Transofer Done");
         uint256 amountLPs = _addLiquidity(_pid, _tokenFrom, _amount);
+        console.log("Liquidity Added");
         _depositToFarm(_pid, amountLPs);
+        console.log("Farm Deposit");
         emit Deposit(_pid, _amount, _opId);
     }
 
