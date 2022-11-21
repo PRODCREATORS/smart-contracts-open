@@ -1,0 +1,7 @@
+version: "3.8"
+services:
+  node:
+    build: .
+    env_file: .env
+    ports: 
+      - 8545:8545
