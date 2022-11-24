@@ -6,15 +6,16 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IWETH.sol";
 
 contract UniswapWrapper is IEntangleDEXWrapper {
     using SafeERC20 for IERC20;
     
     IUniswapV2Router01 public router;
     IUniswapV2Factory public factory;
-    address public WETH;
+    IWETH public WETH;
 
-    constructor(address _router, address _WETH) {
+    constructor(address _router, IWETH _WETH) {
         router = IUniswapV2Router01(_router);
         factory = IUniswapV2Factory(router.factory());
         WETH = _WETH;
@@ -29,7 +30,7 @@ contract UniswapWrapper is IEntangleDEXWrapper {
         else {
             path = new address[](3);
             path[0] = from;
-            path[1] = WETH;
+            path[1] = address(WETH);
             path[2] = to;
         }
     }
