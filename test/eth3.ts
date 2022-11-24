@@ -1,95 +1,100 @@
 import { expect } from "chai";
-import { Signer, Contract } from "ethers";
+import { BigNumber } from "ethers";
 import hre, { ethers } from "hardhat";
-import { EthreumSynthChef } from "../typechain-types/contracts/synth-chefs/EthreumSynthChef.sol";
-import { EthreumSynthChef__factory } from "../typechain-types/factories/contracts/synth-chefs/EthreumSynthChef.sol";
-import { UniswapWrapper } from "../typechain-types/contracts/dex-wrappers/UniswapWrapper";
-import { UNSIWAP_ROUTER, WETH, WETH_ABI } from "../constants";
+import * as mainnet from "../constants";
+import { ERC20, IWETH } from "../typechain-types";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+type WETH = ERC20 & IWETH;
+
+const GAUGE = "0xdefd8fdd20e0f34115c7018ccfb655796f6b2168"; // For real was a pain in the ass to verify
+
+async function trace<T>(fn: () => Promise<T>): Promise<T> {
+  hre.tracer.enabled = !!process.env.TRACE;
+  const out = await fn();
+  hre.tracer.enabled = false;
+  return out;
+}
 
 describe("ETH Synth Chef", function () {
-  let chef: EthreumSynthChef;
-  let owner: Signer;
-  let weth: Contract;
-  let wrapper: UniswapWrapper;
-  before(async function () {
-    owner = (await ethers.getSigners())[0];
-    console.log(await owner.getChainId());
+  async function chefFixture() {
+    const [owner] = await ethers.getSigners();
+
     const UniswapWrapperFactory = await ethers.getContractFactory(
       "UniswapWrapper"
     );
-    wrapper = await UniswapWrapperFactory.deploy(UNSIWAP_ROUTER, WETH);
-    weth = new ethers.Contract(WETH, WETH_ABI, owner);
+    const ChefFactory = await ethers.getContractFactory("TricryptoSynthChef");
 
-    console.log("Swapping ETH to WETH...");
-    await weth.deposit({ value: ethers.utils.parseEther("100.0") });
+    const wETH = (await ethers.getContractAt("IWETH", mainnet.WETH)) as WETH;
+    wETH.deposit({ value: ethers.utils.parseEther("1") });
 
-    console.log("WETH balance:", await weth.balanceOf(owner.getAddress()));
-    const ChefFactory = await ethers.getContractFactory("EthreumSynthChef");
-    chef = await ChefFactory.deploy(
-      "0xF403C135812408BFbE8713b5A23a04b3D48AAE31", //convex
-      wrapper.address, //dex interface
-      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", //stable
-      ["0xD533a949740bb3306d119CC777fa900bA034cd52"], //reward
-      "1", //fee
-      await owner.getAddress()
-    ); //fee collector
-    await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress());
-    await chef.addPool(
-      "0xc4AD29ba4B3c580e6D59105FFf484999997675Ff",
-      38,
-      "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-      "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-      "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      "0xD51a44d3FaE010294C616388b506AcdA1bfAAE46",
-      "0x9D5C5E364D81DaB193b72db9E9BE9D8ee669B652"
+    const UniswapWrapper = await UniswapWrapperFactory.deploy(
+      mainnet.UNSIWAP_ROUTER,
+      mainnet.WETH
     );
+    await UniswapWrapper.deployed();
+
+    const chef = await ChefFactory.deploy(
+      mainnet._3CryptoV2Pool,
+      UniswapWrapper.address,
+      mainnet.USDC,
+      [mainnet.CRV],
+      "1",
+      owner.address
+    );
+    await chef.deployed();
+
+    await chef.grantRole(chef.ADMIN_ROLE(), owner.address);
+
+    return { wETH, chef, owner };
+  }
+
+  it("Deposit (cold)", async function () {
+    const { wETH, chef } = await loadFixture(chefFixture);
+
+    const lpAddr = await chef.lpToken();
+    const LP = await ethers.getContractAt("ERC20", lpAddr);
+
+    let balance = await LP.balanceOf(chef.address);
+    expect(balance.eq(0));
+
+    await wETH.approve(chef.address, ethers.constants.MaxUint256);
+
+    const tx = await trace(() =>
+      chef.deposit(0, wETH.address, ethers.utils.parseEther("1.0"), 0, {
+        gasLimit: 2500000,
+      })
+    );
+
+    const receipt = await tx.wait(1);
+    const event = chef.interface.parseLog(receipt.logs!.at(-2)!);
+    const expectedAmount = event.args[0] as BigNumber;
+
+    balance = await LP.balanceOf(chef.address);
+    expect(balance.eq(expectedAmount));
   });
 
-  it("Deposit", async function () {
-    console.log(new Date(), 'start');
-    await weth.approve(chef.address, ethers.constants.MaxUint256);
-    console.log(new Date(), "APPROVE");
-    const tx = await chef.deposit(
-      0,
-      weth.address,
-      ethers.utils.parseEther("1.0"),
-      0, { gasLimit: 2500000 } 
-    );
-    console.log(new Date(), "DEPOSIT");
+  // it("Compound", async function () {
+  //   let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
+  //   await ethers.provider.send("evm_increaseTime", [3600 * 24 * 365]);
+  //   const tx = await chef.compound(0, { gasLimit: 2500000 });
+  //   await tx.wait(1);
+  //   let balanceAfterCompound = await chef.getBalanceOnFarm(0);
+  //   console.log({ balanceBeforeCompound, balanceAfterCompound })
+  //   //expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
+  // });
 
-    expect(await chef.getBalanceOnFarm(0)).to.be.greaterThan(0);
-  });
-
-  it("Deposit", async function () {
-    console.log(new Date(), 'start');
-    const tx = await chef.deposit(
-      0,
-      weth.address,
-      ethers.utils.parseEther("1.0"),
-      0, { gasLimit: 2500000 } 
-    );
-    console.log(new Date(), "DEPOSIT");
-
-    expect(await chef.getBalanceOnFarm(0)).to.be.greaterThan(0);
-  });
-//  it("Compound", async function () {
-//    let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
-//    await ethers.provider.send("evm_increaseTime", [3600 * 24 * 365]);
-//    await chef.compound(0);
-//    let balanceAfterCompound = await chef.getBalanceOnFarm(0);
-//    expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
-//  });
-//
-//  it("Withdraw", async function () {
-//    let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-//    await chef.withdraw(
-//      0,
-//      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-//      (await chef.getLPAmountOnFarm(0)).div(10),
-//      owner.getAddress(),
-//      0
-//    );
-//    let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
-//    expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
-//  });
+  // it("Withdraw", async function () {
+  //   let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
+  //   const tx = await chef.withdraw(
+  //     0,
+  //     "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  //     (await chef.getLPAmountOnFarm(0)).div(10),
+  //     owner.getAddress(),
+  //     0, { gasLimit: 2500000 }
+  //   );
+  //   await tx.wait(1)
+  //   let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
+  //   console.log({ balanceBeforeWithdraw, balanceAfterWithdraw})
+  //   //expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
+  // });
 });
