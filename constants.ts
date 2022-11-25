@@ -19,6 +19,7 @@ export const Curvefi_USD__BTC__ETH                = "0xc4AD29ba4B3c580e6D59105FF
 export const Curvefi_USD__BTC__ETH_Convex_Deposit = "0x903C9974aAA431A765e60bC07aF45f0A1B3b61fb";
 export const Curvefi_Pool_Math                    = "0x8f68f4810cce3194b6cb6f3d50fa58c2c9bdd1d5";
 export const Curvefi_Front_Utils                  = "0x40745803C2faA8E8402E2Ae935933D07cA8f355c";
+export const Gauge_Controller                     = "0x2f50d538606fa9edd2b11e2446beb18c9d5846bb";
 
 export const WETH_ABI = [
   {
