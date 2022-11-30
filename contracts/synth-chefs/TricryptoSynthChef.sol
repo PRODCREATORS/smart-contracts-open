@@ -57,7 +57,8 @@ contract TricryptoSynthChef is BaseSynthChef {
     _init();
   }
 
-  function _init() internal {
+  function _init() internal 
+  {
     //Setup index and allowances
     for (uint8 i = 0; i < m_TokensCount; ++i) {
       address addr = m_LiqidityPool.coins(i);
@@ -69,8 +70,11 @@ contract TricryptoSynthChef is BaseSynthChef {
 
   event ExpectLPs(uint256 amount);
 
-
-  function _depositToFarm(uint256 _pid, uint256 _amount) internal override { m_Booster.deposit(_pid, _amount, true);}
+  function getLpToken() public view returns (address) { return address(m_LpToken); }
+  
+  function getGauge() public view returns (address) { return address(m_Gauge); }
+  
+  function _depositToFarm(uint256 _pid, uint256 _amount) internal override { m_Booster.deposit(m_ConvexPoolId, _amount, true);}
 
   function _harvest(uint256 _pid) internal override { m_CrvRewards.getReward(); }
 
@@ -96,9 +100,8 @@ contract TricryptoSynthChef is BaseSynthChef {
    *       So... trying to be on the safe side we subtract the fees from 
    *       the result
    */
-  function _addLiquidity(uint256 _pid, address _tokenFrom, uint256 _amount) internal override returns (uint256 LPAmount) {
-    
-
+  function _addLiquidity(uint256 _pid, address _tokenFrom, uint256 _amount) internal override returns (uint256 LPAmount) 
+  {
     uint8 idx = m_TokenToPoolIndex[_tokenFrom];
 
     uint256[3] memory amounts = [uint(0), uint(0), uint(0)];
@@ -115,8 +118,8 @@ contract TricryptoSynthChef is BaseSynthChef {
     return expected - fees;
   }
 
-  function _removeLiquidity(uint256 _pid, uint256 _amount) internal override returns (TokenAmount[] memory) {
-    
+  function _removeLiquidity(uint256 _pid, uint256 _amount) internal override returns (TokenAmount[] memory) 
+  {
     TokenAmount[] memory tokenAmounts = new TokenAmount[](3);
     
     uint256[3] memory min_amounts = [uint(0), uint(0), uint(0)];
@@ -135,9 +138,8 @@ contract TricryptoSynthChef is BaseSynthChef {
   }
 
 
-  function _getTokensInLP(uint256 _pid) internal view override returns (TokenAmount[] memory) {
-    
-    
+  function _getTokensInLP(uint256 _pid) internal view override returns (TokenAmount[] memory) 
+  {
     TokenAmount[] memory tokens = new TokenAmount[](3);
 
     address[3] memory _tokens  = _getPoolTokens();
@@ -150,13 +152,15 @@ contract TricryptoSynthChef is BaseSynthChef {
     return tokens;
   }
 
-  function _getPoolBalances() internal view returns (uint256[m_TokensCount] memory balances) {
+  function _getPoolBalances() internal view returns (uint256[m_TokensCount] memory balances) 
+  {
     for (uint8 i = 0; i < m_TokensCount; ++i) {
       balances[i] = m_LiqidityPool.balances(i);
     }
   }
 
-  function _getPoolTokens() internal view returns (address[m_TokensCount] memory tokens) {
+  function _getPoolTokens() internal view returns (address[m_TokensCount] memory tokens) 
+  {
     for (uint8 i = 0; i < m_TokensCount; ++i) {
       tokens[i] = m_LiqidityPool.coins(i);
     }
