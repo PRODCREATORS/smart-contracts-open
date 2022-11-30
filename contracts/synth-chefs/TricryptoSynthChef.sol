@@ -18,12 +18,14 @@ contract TricryptoSynthChef is BaseSynthChef {
   ILiquidityGaugeV3 m_Gauge;
   IConvexBooster m_Booster;
   uint256 m_ConvexPoolId;
-  /** Unknown */
+
+  // Unused, maybe remove it?
   address m_Stash;
   IERC20 m_DepositToken;
+  // FIXME: This will only support pools with 3 coins
   uint8 constant m_TokensCount = 3; 
   IERC20 m_LpToken;
-
+  // Index is masked by the most significant bit, so to get the actual index -> _ & 0x7f 
   mapping(address => uint8) m_TokenToPoolIndex;
 
   constructor(
@@ -62,9 +64,10 @@ contract TricryptoSynthChef is BaseSynthChef {
     //Setup index and allowances
     for (uint8 i = 0; i < m_TokensCount; ++i) {
       address addr = m_LiqidityPool.coins(i);
-      m_TokenToPoolIndex[addr] = i;
+      m_TokenToPoolIndex[addr] = (1 << 7) | i; // Set MSB so we can test the value is real
       IERC20(addr).safeIncreaseAllowance(address(m_LiqidityPool), type(uint256).max);
     }
+
     m_LpToken.safeIncreaseAllowance(address(m_Booster), type(uint256).max);
   }
 
@@ -103,6 +106,11 @@ contract TricryptoSynthChef is BaseSynthChef {
   function _addLiquidity(uint256 _pid, address _tokenFrom, uint256 _amount) internal override returns (uint256 LPAmount) 
   {
     uint8 idx = m_TokenToPoolIndex[_tokenFrom];
+    // Test the msb
+    require(idx >> 7 == 1, "Unknown token");
+    // Get the actual index
+    idx = idx & 0x7f; 
+    require(idx < m_TokensCount, "Token index > Tokens count");
 
     uint256[3] memory amounts = [uint(0), uint(0), uint(0)];
     amounts[idx] = _amount;
@@ -133,7 +141,7 @@ contract TricryptoSynthChef is BaseSynthChef {
       tokenAmounts[i] = TokenAmount(min_amounts[i], tokens[i]);
     }
 
-    //m_Pool.remove_liquidity(_amount, min_amounts);
+    m_LiqidityPool.remove_liquidity(_amount, min_amounts);
     return tokenAmounts;
   }
 
