@@ -39,8 +39,15 @@ describe("ETH Synth Chef", async function () {
     await UniswapWrapper.deployed();
 
     const chef = await ChefFactory.deploy(
-      mainnet._3CryptoV2Pool,
+      "0xF403C135812408BFbE8713b5A23a04b3D48AAE31",
+      38,
+      "0x9D5C5E364D81DaB193b72db9E9BE9D8ee669B652",
       mainnet.crv3crypto__gauge,
+      mainnet._3CryptoV2Pool,
+      "0xc4AD29ba4B3c580e6D59105FFf484999997675Ff",
+      "0x903C9974aAA431A765e60bC07aF45f0A1B3b61fb",
+      "0xDb1A0Bb8C14Bc7B4eDA5ca95B4A6C6013a7b359D",
+      3,
       UniswapWrapper.address,
       mainnet.USDC,
       [mainnet.CRV],
@@ -65,10 +72,10 @@ describe("ETH Synth Chef", async function () {
     });
 
     it("Deposit", async function () {
-      const lpAddr = await chef.lpToken();
+      const lpAddr = await chef.getLpToken();
       const LP = await ethers.getContractAt("ERC20", lpAddr);
 
-      let balance = await LP.balanceOf(chef.address);
+      const balance = await LP.balanceOf(chef.address);
       expect(balance.eq(0)).to.be.true;
 
       await wETH.approve(chef.address, ethers.constants.MaxUint256);
@@ -85,9 +92,8 @@ describe("ETH Synth Chef", async function () {
       
       const expectedAmount = event.args[0] as BigNumber;
 
-      balance = await LP.balanceOf(chef.address);
-      console.log(expectedAmount, balance);
-      expect(balance.eq(expectedAmount));
+      const onFarm = await chef.getLPAmountOnFarm(0);
+      expect(onFarm.toString()).to.be.eq(expectedAmount.toString());
     });
 
     it("getBalanceOnFarm", async function () {
@@ -95,22 +101,22 @@ describe("ETH Synth Chef", async function () {
       console.log(bal);
     });
 
-    // it("Compound", async function () {
-    //   let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
-    //   await ethers.provider.send("evm_increaseTime", [3600 * 24 * 365]);
-    //   const tx = await chef.compound(0, { gasLimit: 2500000 });
-    //   await tx.wait(1);
-    //   let balanceAfterCompound = await chef.getBalanceOnFarm(0);
-    //   console.log({ balanceBeforeCompound, balanceAfterCompound })
-    //   //expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
-    // });
-    it("User checkpoint", async function () {
-     const gague = await chef.getGauge();
-     const g = await ethers.getContractAt('ILiquidityGaugeV3', gague);
+    it("Compound", async function () {
+      let balanceBeforeCompound = await chef.getBalanceOnFarm(0);
+      await ethers.provider.send("evm_increaseTime", [3600 * 24 * 30]);
+      const tx = await trace(() => chef.compound(0, { gasLimit: 2500000 }));
+      await tx.wait(1);
+      let balanceAfterCompound = await chef.getBalanceOnFarm(0);
+      console.log({ balanceBeforeCompound, balanceAfterCompound })
+      //expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
+    });
+    // it("User checkpoint", async function () {
+    //  const gague = await chef.getGauge();
+    //  const g = await ethers.getContractAt('ILiquidityGaugeV3', gague);
 
-     await trace(() => g.user_checkpoint(owner.address));
+    //  await trace(() => g.user_checkpoint(owner.address));
 
-    })
+    // })
     it("Withdraw", async function () {
       let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
       //await ethers.provider.send("evm_increaseTime", [3600 * 24 * 365]);
@@ -119,14 +125,13 @@ describe("ETH Synth Chef", async function () {
 
       
       console.log("Amount to withdraw",  amount.lt("25613014622422005801572"));
-      hre.tracer.enabled = true;
-      const tx = await chef.withdraw(
+      const tx = await trace(() => chef.withdraw(
         0,
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
         amount,
         owner.getAddress(),
         0,
-      ); // TODO: FAILS AT get_relative_weight <---- WRONG!
+      )); // TODO: FAILS AT get_relative_weight <---- WRONG!
       // We are just withdrawing more than we have
       console.log(tx.hash)
       await tx.wait(1)
