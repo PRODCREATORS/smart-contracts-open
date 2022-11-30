@@ -10,7 +10,17 @@ async function trace<T>(fn: () => Promise<T>): Promise<T> {
   return out;
 }
 
+async function verifyForkChainId() {
+  const fork = new ethers.providers.JsonRpcProvider(process.env.FORK_URL);
+  const network = await fork.getNetwork();
+  if(network.chainId !== 1) {
+    console.error('This test is designed for ETH Mainnet, check your FORK_URL environment variable');
+    process.exit(1);
+  }
+}
+
 describe("ETH Synth Chef", async function () {
+  it("Using correct chain for the fork",async () => { await verifyForkChainId() })
   async function chefFixture() {
     const [owner] = await ethers.getSigners();
 
