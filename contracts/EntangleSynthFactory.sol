@@ -3,7 +3,6 @@ pragma solidity 0.8.15;
 
 import "./EntangleSynth.sol";
 import "./PausableAccessControl.sol";
-import "hardhat/console.sol";
 
 /** @dev Contract that manages synth tokens */
 contract EntangleSynthFactory is PausableAccessControl {

@@ -12,7 +12,6 @@ import "./synth-chefs/BaseSynthChef.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntanglePool.sol";
 import "./EntangleLending.sol";
-import "hardhat/console.sol";
 
 interface Ipool {
     function depositToken(uint256 amount) external;
@@ -189,7 +188,7 @@ contract EntangleRouter is PausableAccessControl {
         address _toToken,
         uint256 _opId
     ) external onlyRole(ADMIN) whenNotPaused {
-        chef.withdraw(_pid, _toToken, _amount, msg.sender, _opId);
+        chef.withdraw(_pid, _toToken, _amount, address(this), _opId);
     }
 
     function depositFromPool(
@@ -262,8 +261,8 @@ contract EntangleRouter is PausableAccessControl {
             return;
         }
         if (k > 10**accuracy) {
-            amountToRebalance =
-                (currentOpBalance * (10**zFactorDecimals - zFactor)) /
+            amountToRebalance = currentOpBalance - 
+                (neededOpBalance * (10**zFactorDecimals - zFactor)) /
                 10**zFactorDecimals;
             _type = EventType.BUY;
         }
