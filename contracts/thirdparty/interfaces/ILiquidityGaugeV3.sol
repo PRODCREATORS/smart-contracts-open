@@ -33,20 +33,19 @@ interface ILiquidityGaugeV3 {
 
     function last_claim() external view returns (uint256);
 
-    function claimed_reward(
-        address _addr,
-        address _token
-    ) external view returns (uint256);
+    function claimed_reward(address _addr, address _token)
+        external
+        view
+        returns (uint256);
 
-    function claimable_reward(
-        address _addr,
-        address _token
-    ) external view returns (uint256);
+    function claimable_reward(address _addr, address _token)
+        external
+        view
+        returns (uint256);
 
-    function claimable_reward_write(
-        address _addr,
-        address _token
-    ) external returns (uint256);
+    function claimable_reward_write(address _addr, address _token)
+        external
+        returns (uint256);
 
     function set_rewards_receiver(address _receiver) external;
 
@@ -82,15 +81,13 @@ interface ILiquidityGaugeV3 {
 
     function approve(address _spender, uint256 _value) external returns (bool);
 
-    function increaseAllowance(
-        address _spender,
-        uint256 _added_value
-    ) external returns (bool);
+    function increaseAllowance(address _spender, uint256 _added_value)
+        external
+        returns (bool);
 
-    function decreaseAllowance(
-        address _spender,
-        uint256 _subtracted_value
-    ) external returns (bool);
+    function decreaseAllowance(address _spender, uint256 _subtracted_value)
+        external
+        returns (bool);
 
     function set_rewards(
         address _reward_contract,
@@ -120,10 +117,10 @@ interface ILiquidityGaugeV3 {
 
     function totalSupply() external view returns (uint256);
 
-    function allowance(
-        address arg0,
-        address arg1
-    ) external view returns (uint256);
+    function allowance(address arg0, address arg1)
+        external
+        view
+        returns (uint256);
 
     function name() external view returns (string memory);
 
@@ -139,13 +136,15 @@ interface ILiquidityGaugeV3 {
 
     function integrate_inv_supply(uint256 arg0) external view returns (uint256);
 
-    function integrate_inv_supply_of(
-        address arg0
-    ) external view returns (uint256);
+    function integrate_inv_supply_of(address arg0)
+        external
+        view
+        returns (uint256);
 
-    function integrate_checkpoint_of(
-        address arg0
-    ) external view returns (uint256);
+    function integrate_checkpoint_of(address arg0)
+        external
+        view
+        returns (uint256);
 
     function integrate_fraction(address arg0) external view returns (uint256);
 
@@ -157,10 +156,10 @@ interface ILiquidityGaugeV3 {
 
     function reward_integral(address arg0) external view returns (uint256);
 
-    function reward_integral_for(
-        address arg0,
-        address arg1
-    ) external view returns (uint256);
+    function reward_integral_for(address arg0, address arg1)
+        external
+        view
+        returns (uint256);
 
     function admin() external view returns (address);
 

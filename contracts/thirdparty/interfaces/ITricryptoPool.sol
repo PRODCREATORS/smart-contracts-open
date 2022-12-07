@@ -102,30 +102,26 @@ interface ITricryptoPool {
         uint256 dx
     ) external view returns (uint256);
 
-    function calc_token_fee(
-        uint256[3] memory amounts,
-        uint256[3] memory xp
-    ) external view returns (uint256);
+    function calc_token_fee(uint256[3] memory amounts, uint256[3] memory xp)
+        external
+        view
+        returns (uint256);
 
-    function add_liquidity(
-        uint256[3] memory amounts,
-        uint256 min_mint_amount
-    ) external;
+    function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount)
+        external;
 
-    function remove_liquidity(
-        uint256 _amount,
-        uint256[3] memory min_amounts
-    ) external;
+    function remove_liquidity(uint256 _amount, uint256[3] memory min_amounts)
+        external;
 
-    function calc_token_amount(
-        uint256[3] memory amounts,
-        bool deposit
-    ) external view returns (uint256);
+    function calc_token_amount(uint256[3] memory amounts, bool deposit)
+        external
+        view
+        returns (uint256);
 
-    function calc_withdraw_one_coin(
-        uint256 token_amount,
-        uint256 i
-    ) external view returns (uint256);
+    function calc_withdraw_one_coin(uint256 token_amount, uint256 i)
+        external
+        view
+        returns (uint256);
 
     function remove_liquidity_one_coin(
         uint256 token_amount,

@@ -15,7 +15,7 @@ gen () {
     echo -n "."
   done
   yank $1 $2_abi.json
-  cat /tmp/$2_abi.json | npx abi-to-sol $2 > $PROJECT_ROOT/contracts/interfaces/thirdparty/$2.sol
+  cat /tmp/$2_abi.json | npx abi-to-sol $2 > $PROJECT_ROOT/contracts/thirdparty/interfaces/$2.sol
   printf "\x1b[48;2;0;100;0mDone.\e[0m\n"
 }
 
