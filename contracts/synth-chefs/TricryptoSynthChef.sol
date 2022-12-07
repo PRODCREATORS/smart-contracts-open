@@ -2,42 +2,37 @@
 pragma solidity >=0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../interfaces/thirdparty/ITricryptoPool.sol";
-import "../interfaces/thirdparty/ILiquidityGaugeV3.sol";
-import "../interfaces/thirdparty/IConvexBooster.sol";
-import "../interfaces/thirdparty/IBaseRewardPool.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../thirdparty/interfaces/ITricryptoPool.sol";
+import "../thirdparty/interfaces/ILiquidityGaugeV3.sol";
+import "../thirdparty/interfaces/IConvexBooster.sol";
+import "../thirdparty/interfaces/IBaseRewardPool.sol";
 import "./BaseSynthChef.sol";
 import "hardhat/console.sol";
 
+interface CurveLp is IERC20 {
+  function minter() external returns (address);
+}
+
 contract TricryptoSynthChef is BaseSynthChef {
   using SafeERC20 for IERC20;
-  
-  /** Minter of lp token */
-  ITricryptoPool m_LiqidityPool;
-  IBaseRewardPool m_CrvRewards;
-  ILiquidityGaugeV3 m_Gauge;
-  IConvexBooster m_Booster;
-  uint256 m_ConvexPoolId;
 
-  // Unused, maybe remove it?
-  address m_Stash;
-  IERC20 m_DepositToken;
+  IConvexBooster m_ConvexBooster;
+  struct Pool { 
+    ITricryptoPool LiqidityPool;
+    IBaseRewardPool CrvRewards;
+    ILiquidityGaugeV3 Gauge;
+    IERC20 DepositToken;
+    IERC20 LpToken;
+    uint256 ConvexPoolId;
+  }
+  Pool[] public Pools;
+  
   // FIXME: This will only support pools with 3 coins
   uint8 constant m_TokensCount = 3; 
-  IERC20 m_LpToken;
-  // Index is masked by the most significant bit, so to get the actual index -> _ & 0x7f 
-  mapping(address => uint8) m_TokenToPoolIndex;
 
   constructor(
     IConvexBooster booster,
-    uint256 poolId,
-    IBaseRewardPool crvRewards,
-    ILiquidityGaugeV3 gauge,
-    ITricryptoPool lp,
-    IERC20 lpToken,
-    IERC20 depToken,
-    address stash, 
-    uint8 ntok,
     // Base
     address _DEXWrapper,
     address _stablecoin,
@@ -47,54 +42,25 @@ contract TricryptoSynthChef is BaseSynthChef {
   )
     BaseSynthChef(_DEXWrapper, _stablecoin, _rewardTokens, _fee, _feeCollector)
   {
-    m_Booster      = booster;
-    m_ConvexPoolId = poolId;
-    m_CrvRewards   = crvRewards;
-    m_Gauge        = gauge;
-    m_LiqidityPool = lp;
-    m_LpToken      = lpToken;
-    m_DepositToken = depToken;
-    m_Stash        = stash;
-    require(m_TokensCount == ntok);
-    _init();
+    m_ConvexBooster = booster; 
   }
 
-  function _init() internal 
-  {
-    //Setup index and allowances
-    for (uint8 i = 0; i < m_TokensCount; ++i) {
-      address addr = m_LiqidityPool.coins(i);
-      m_TokenToPoolIndex[addr] = (1 << 7) | i; // Set MSB so we can test the value is real
-      IERC20(addr).safeIncreaseAllowance(address(m_LiqidityPool), type(uint256).max);
-    }
+  event ExpectLPs(uint256 amountexp, uint256 fee);
 
-    m_LpToken.safeIncreaseAllowance(address(m_Booster), type(uint256).max);
-  }
-
-  event ExpectLPs(uint256 amount);
-
-  function getLpToken() public view returns (address) { return address(m_LpToken); }
+  function getLpToken(uint256 pid) public view returns (address) { return address(Pools[pid].LpToken); }
   
-  function getGauge() public view returns (address) { return address(m_Gauge); }
+  function getGauge(uint256 pid) public view returns (address) { return address(Pools[pid].Gauge); }
   
-  function _depositToFarm(uint256 _pid, uint256 _amount) internal override { m_Booster.deposit(m_ConvexPoolId, _amount, true);}
+  function _depositToFarm(uint256 pid, uint256 _amount) internal override { m_ConvexBooster.deposit(Pools[pid].ConvexPoolId, _amount, true);}
 
-  function _harvest(uint256 _pid) internal override { m_CrvRewards.getReward(); }
+  function _harvest(uint256 pid) internal override { Pools[pid].CrvRewards.getReward(); }
 
-  function _withdrawFromFarm(uint256 _pid, uint256 _amount) internal override { m_CrvRewards.withdrawAndUnwrap(_amount, false); }
+  function _withdrawFromFarm(uint256 pid, uint256 amount) internal override { Pools[pid].CrvRewards.withdrawAndUnwrap(amount, false); }
 
-  function getLPAmountOnFarm(uint256 _pid) public view override returns (uint256) { return m_CrvRewards.balanceOf(address(this)); }
-
-  //function _SetupGaugeAllowance() internal { IERC20(getLpToken()).safeIncreaseAllowance(address(m_Gauge), type(uint256).max); }
+  function getLPAmountOnFarm(uint256 pid) public view override returns (uint256) { return Pools[pid].CrvRewards.balanceOf(address(this)); }
 
   /**
    * NOTE: Currently only single pool is implemented;
-   *       Instead of depoiting and combination of 3 tokens,
-   *       our api basically allows adding only one token at a time; 
-   *       maybe we should split input like: 
-   *        -  Token From: 98%
-   *        -  Rest: 2%
-   * 
    *       Also returned amount of LP Tokens minted is not guranieeed
    *       to be correct, because `pool.add_liqidity` method does not
    *       return the ammmount of LP Tokens minted; We base our
@@ -103,55 +69,58 @@ contract TricryptoSynthChef is BaseSynthChef {
    *       So... trying to be on the safe side we subtract the fees from 
    *       the result
    */
-  function _addLiquidity(uint256 _pid, address _tokenFrom, uint256 _amount) internal override returns (uint256 LPAmount) 
+  function _addLiquidity(uint256 pid, address tokenFrom, uint256 amount) internal override returns (uint256 LPAmount) 
   {
-    uint8 idx = m_TokenToPoolIndex[_tokenFrom];
-    // Test the msb
-    require(idx >> 7 == 1, "Unknown token");
-    // Get the actual index
-    idx = idx & 0x7f; 
-    require(idx < m_TokensCount, "Token index > Tokens count");
+    Pool storage pool = Pools[pid];
 
     uint256[3] memory amounts = [uint(0), uint(0), uint(0)];
-    amounts[idx] = _amount;
+    address[3] memory tokens  = _getPoolTokens(pool);
+    // _convertTokensToProvideLiquidity 
+    for (uint8 i = 0; i < m_TokensCount; ++i) {
+      amounts[i] = _convertTokens(tokenFrom, tokens[i], amount / m_TokensCount);
+    }
 
-    uint256[3] memory xp = _getPoolBalances();
-    uint256 fees = m_LiqidityPool.calc_token_fee(amounts, xp);
+    uint256[3] memory xp = _getPoolBalances(pool);
+    uint256 fees = pool.LiqidityPool.calc_token_fee(amounts, xp);
 
-    uint256 expected = m_LiqidityPool.calc_token_amount(amounts, true); // This does not account for fees...
+    uint256 expected = pool.LiqidityPool.calc_token_amount(amounts, true); // This does not account for fees...
 
-    m_LiqidityPool.add_liquidity(amounts, expected); // Should we adjust our expectatins since it does not account for fees?
+    // Should we adjust our expectatins since it does not account for fees?
+    // Seems to work fine. Does the lp not apply fees at this step?
+    pool.LiqidityPool.add_liquidity(amounts, expected); 
     // Emit the expected ammount of lp tokens to test is our assumptions correct
-    emit ExpectLPs(expected - fees);
-    return expected - fees;
+    emit ExpectLPs(expected, fees);
+    return expected;
   }
 
-  function _removeLiquidity(uint256 _pid, uint256 _amount) internal override returns (TokenAmount[] memory) 
+  function _removeLiquidity(uint256 pid, uint256 amount) internal override returns (TokenAmount[] memory) 
   {
+    Pool storage pool = Pools[pid];
     TokenAmount[] memory tokenAmounts = new TokenAmount[](3);
     
     uint256[3] memory min_amounts = [uint(0), uint(0), uint(0)];
-    uint256 totalSupply           = m_LpToken.totalSupply();
+    uint256 totalSupply           = pool.LpToken.totalSupply();
     
-    address[3] memory tokens   = _getPoolTokens();
-    uint256[3] memory balances = _getPoolBalances();
+    address[3] memory tokens   = _getPoolTokens(pool);
+    uint256[3] memory balances = _getPoolBalances(pool);
 
     for(uint8 i = 0; i < m_TokensCount; ++i) {
-      min_amounts[i] = ((balances[i] * _amount) / totalSupply) - 1 ;
+      min_amounts[i] = ((balances[i] * amount) / totalSupply) - 1 ;
       tokenAmounts[i] = TokenAmount(min_amounts[i], tokens[i]);
     }
 
-    m_LiqidityPool.remove_liquidity(_amount, min_amounts);
+    pool.LiqidityPool.remove_liquidity(amount, min_amounts);
     return tokenAmounts;
   }
 
 
-  function _getTokensInLP(uint256 _pid) internal view override returns (TokenAmount[] memory) 
+  function _getTokensInLP(uint256 pid) internal view override returns (TokenAmount[] memory) 
   {
+    Pool storage pool = Pools[pid];
     TokenAmount[] memory tokens = new TokenAmount[](3);
 
-    address[3] memory _tokens  = _getPoolTokens();
-    uint256[3] memory reserves = _getPoolBalances();
+    address[3] memory _tokens  = _getPoolTokens(pool);
+    uint256[3] memory reserves = _getPoolBalances(pool);
 
     for(uint8 i = 0; i < m_TokensCount; ++i) {
       tokens[i] = TokenAmount({amount: reserves[i], token: _tokens[i]});
@@ -160,17 +129,49 @@ contract TricryptoSynthChef is BaseSynthChef {
     return tokens;
   }
 
-  function _getPoolBalances() internal view returns (uint256[m_TokensCount] memory balances) 
+  function _getPoolBalances(Pool storage pool) internal view returns (uint256[m_TokensCount] memory balances) 
   {
     for (uint8 i = 0; i < m_TokensCount; ++i) {
-      balances[i] = m_LiqidityPool.balances(i);
+      balances[i] = pool.LiqidityPool.balances(i);
     }
   }
 
-  function _getPoolTokens() internal view returns (address[m_TokensCount] memory tokens) 
+  function _getPoolTokens(Pool storage pool) internal view returns (address[m_TokensCount] memory tokens) 
   {
     for (uint8 i = 0; i < m_TokensCount; ++i) {
-      tokens[i] = m_LiqidityPool.coins(i);
+      tokens[i] = pool.LiqidityPool.coins(i);
     }
+  }
+  function addConvexPool(uint256 convexPoolId) public onlyRole(ADMIN_ROLE) whenNotPaused {
+    (
+      address lptoken,
+      address token,
+      address gauge,
+      address crvRewards,
+      address _stash,
+      bool shutdown
+    ) = m_ConvexBooster.poolInfo(convexPoolId);
+
+    require(!shutdown, "Original pool was shutdown");
+
+    address curvePoolAddress = CurveLp(lptoken).minter();
+    Pool memory newPool = Pool({
+      LiqidityPool: ITricryptoPool(payable(curvePoolAddress)),
+      CrvRewards: IBaseRewardPool(crvRewards),
+      Gauge: ILiquidityGaugeV3(gauge),
+      LpToken: IERC20(lptoken),
+      DepositToken: IERC20(token),
+      ConvexPoolId: convexPoolId
+    });
+
+    //Setup index and allowances
+    for (uint8 i = 0; i < m_TokensCount; ++i) {
+      address addr = newPool.LiqidityPool.coins(i);
+      IERC20(addr).safeIncreaseAllowance(address(newPool.LiqidityPool), type(uint256).max);
+    }
+
+    newPool.LpToken.safeIncreaseAllowance(address(m_ConvexBooster), type(uint256).max);
+
+    return Pools.push(newPool);
   }
 }
