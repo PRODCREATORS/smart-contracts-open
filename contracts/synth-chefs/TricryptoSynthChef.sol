@@ -122,7 +122,11 @@ contract TricryptoSynthChef is BaseSynthChef {
     address[3] memory _tokens  = _getPoolTokens(pool);
     
     for(uint8 i = 0; i < m_TokensCount; ++i) {
-      uint256 amount = pool.LiqidityPool.calc_withdraw_one_coin(amountLp, i);
+      // We should probalby divide amountLp by the m_TokensCount because
+      // in the `getBalanceOnFarm` method we accumulate all token amounts.
+      // So if we just do the caclulation with all the avaliable Lp tokens
+      // we would get 3 times the amount.
+      uint256 amount = pool.LiqidityPool.calc_withdraw_one_coin(amountLp / m_TokensCount, i);
       tokens[i] = TokenAmount({amount: amount, token: _tokens[i]});
     }
 

@@ -109,13 +109,11 @@ describe("ETH Synth Chef", async function () {
 
     it("Withdraw", async function () {
       let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-      let amount = await chef.getLPAmountOnFarm(0);
-      amount = amount.div(10);
 
       const tx = await trace(() => chef.withdraw(
         0,
-        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        amount,
+        mainnet.USDC,
+        1200_000_000, // USDC is 6 decimals
         owner.getAddress(),
         0,
       ));
