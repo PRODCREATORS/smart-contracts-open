@@ -21,7 +21,6 @@ contract TricryptoSynthChef is BaseSynthChef {
   struct Pool { 
     ITricryptoPool LiqidityPool;
     IBaseRewardPool CrvRewards;
-    ILiquidityGaugeV3 Gauge;
     IERC20 LpToken;
     uint256 ConvexPoolId;
   }
@@ -47,8 +46,6 @@ contract TricryptoSynthChef is BaseSynthChef {
   event ExpectLPs(uint256 amountexp, uint256 fee);
 
   function getLpToken(uint256 pid) public view returns (address) { return address(Pools[pid].LpToken); }
-  
-  function getGauge(uint256 pid) public view returns (address) { return address(Pools[pid].Gauge); }
   
   function _depositToFarm(uint256 pid, uint256 _amount) internal override { m_ConvexBooster.deposit(Pools[pid].ConvexPoolId, _amount, true);}
 
@@ -151,7 +148,7 @@ contract TricryptoSynthChef is BaseSynthChef {
     (
       address lptoken,
       ,
-      address gauge,
+      ,
       address crvRewards,
       ,
       bool shutdown
@@ -163,7 +160,6 @@ contract TricryptoSynthChef is BaseSynthChef {
     Pool memory newPool = Pool({
       LiqidityPool: ITricryptoPool(payable(curvePoolAddress)),
       CrvRewards: IBaseRewardPool(crvRewards),
-      Gauge: ILiquidityGaugeV3(gauge),
       LpToken: IERC20(lptoken),
       ConvexPoolId: convexPoolId
     });
