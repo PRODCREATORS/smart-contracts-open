@@ -22,7 +22,6 @@ contract TricryptoSynthChef is BaseSynthChef {
     ITricryptoPool LiqidityPool;
     IBaseRewardPool CrvRewards;
     ILiquidityGaugeV3 Gauge;
-    IERC20 DepositToken;
     IERC20 LpToken;
     uint256 ConvexPoolId;
   }
@@ -142,13 +141,14 @@ contract TricryptoSynthChef is BaseSynthChef {
       tokens[i] = pool.LiqidityPool.coins(i);
     }
   }
+
   function addConvexPool(uint256 convexPoolId) public onlyRole(ADMIN_ROLE) whenNotPaused {
     (
       address lptoken,
-      address token,
+      ,
       address gauge,
       address crvRewards,
-      address _stash,
+      ,
       bool shutdown
     ) = m_ConvexBooster.poolInfo(convexPoolId);
 
@@ -160,7 +160,6 @@ contract TricryptoSynthChef is BaseSynthChef {
       CrvRewards: IBaseRewardPool(crvRewards),
       Gauge: ILiquidityGaugeV3(gauge),
       LpToken: IERC20(lptoken),
-      DepositToken: IERC20(token),
       ConvexPoolId: convexPoolId
     });
 
