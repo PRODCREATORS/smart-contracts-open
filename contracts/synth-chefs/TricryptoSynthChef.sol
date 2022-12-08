@@ -118,11 +118,12 @@ contract TricryptoSynthChef is BaseSynthChef {
     Pool storage pool = Pools[pid];
     TokenAmount[] memory tokens = new TokenAmount[](3);
 
+    uint256 amountLp = getLPAmountOnFarm(pid);
     address[3] memory _tokens  = _getPoolTokens(pool);
-    uint256[3] memory reserves = _getPoolBalances(pool);
-
+    
     for(uint8 i = 0; i < m_TokensCount; ++i) {
-      tokens[i] = TokenAmount({amount: reserves[i], token: _tokens[i]});
+      uint256 amount = pool.LiqidityPool.calc_withdraw_one_coin(amountLp, i);
+      tokens[i] = TokenAmount({amount: amount, token: _tokens[i]});
     }
 
     return tokens;
