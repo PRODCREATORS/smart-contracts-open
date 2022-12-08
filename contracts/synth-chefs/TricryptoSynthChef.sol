@@ -3,12 +3,61 @@ pragma solidity >=0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../thirdparty/interfaces/ITricryptoPool.sol";
-import "../thirdparty/interfaces/ILiquidityGaugeV3.sol";
-import "../thirdparty/interfaces/IConvexBooster.sol";
-import "../thirdparty/interfaces/IBaseRewardPool.sol";
 import "./BaseSynthChef.sol";
 import "hardhat/console.sol";
+
+interface IBaseRewardPool {
+    function getReward() external returns (bool);
+
+    function withdrawAndUnwrap(uint256 amount, bool claim)
+        external
+        returns (bool);
+
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IConvexBooster {
+
+    function deposit(
+        uint256 _pid,
+        uint256 _amount,
+        bool _stake
+    ) external returns (bool);
+
+    function poolInfo(uint256) external view returns (
+        address lptoken,
+        address token,
+        address gauge,
+        address crvRewards,
+        address stash,
+        bool shutdown
+    );
+}
+interface ITricryptoPool {
+    function calc_token_fee(uint256[3] memory amounts, uint256[3] memory xp)
+        external
+        view
+        returns (uint256);
+    function calc_token_amount(uint256[3] memory amounts, bool deposit)
+        external
+        view
+        returns (uint256);
+
+    function calc_withdraw_one_coin(uint256 token_amount, uint256 i)
+        external
+        view
+        returns (uint256);
+
+    function add_liquidity(uint256[3] memory amounts, uint256 min_mint_amount)
+        external;
+
+    function remove_liquidity(uint256 _amount, uint256[3] memory min_amounts)
+        external;
+
+    function balances(uint256 arg0) external view returns (uint256);
+
+    function coins(uint256 i) external view returns (address);
+}
 
 interface CurveLp is IERC20 {
   function minter() external returns (address);
