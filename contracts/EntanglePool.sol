@@ -18,6 +18,7 @@ contract EntanglePool is PausableAccessControl {
 
     constructor() {
         _setRoleAdmin(DEPOSITER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE, ADMIN_ROLE);
         _setupRole(ADMIN_ROLE, msg.sender);
     }
     

@@ -18,6 +18,7 @@ contract EntangleSynthFactory is PausableAccessControl {
 
     constructor() {
         _setRoleAdmin(MINT_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE, ADMIN_ROLE);
         _setupRole(ADMIN_ROLE, msg.sender);
     }
 
@@ -27,7 +28,7 @@ contract EntangleSynthFactory is PausableAccessControl {
      * - `_pid` there must be an pid of the created token
      * - the caller must have ``role``'s admin role.
      */
-    function createSynth(uint256 _chainId, address _synthChef, uint256 _pid, IERC20 _opToken)
+    function createSynth(uint256 _chainId, address _synthChef, uint256 _pid, ERC20 _opToken)
         external
         onlyRole(ADMIN_ROLE)
         whenNotPaused

@@ -58,7 +58,7 @@ describe("Optimism Synth Chef", function () {
         await synth.setPrice("1000000000");
         let DEXonDemandFactory = (await ethers.getContractFactory("EntangleDEXOnDemand")) as EntangleDEXOnDemand__factory;
         console.log(chainId, chef.address, PID);
-        DEXonDemand = await DEXonDemandFactory.deploy(PID, synthFactory.address, chef.address);
+        DEXonDemand = await DEXonDemandFactory.deploy(synthFactory.address, chef.address);
         await DEXonDemand.grantRole(DEXonDemand.ADMIN_ROLE(), owner.getAddress());
         await DEXonDemand.grantRole(DEXonDemand.BUYER(), owner.getAddress());
         await chef.grantRole(chef.ADMIN_ROLE(), DEXonDemand.address);
@@ -67,7 +67,7 @@ describe("Optimism Synth Chef", function () {
 
     it("Deposit", async function () {
         await weth.approve(chef.address, ethers.constants.MaxUint256);
-        await chef.deposit(PID, weth.address, ethers.utils.parseEther("0.05"));
+        await chef.deposit(PID, weth.address, ethers.utils.parseEther("0.05"), 0);
         expect(await chef.getBalanceOnFarm(PID)).to.be.greaterThan(0);
     });
 
@@ -88,7 +88,7 @@ describe("Optimism Synth Chef", function () {
     });
 
     it("Mint from factory", async function () {
-        await synthFactory.mint(chainId, chef.address, PID, "1000000000000000000", owner.getAddress());
+        await synthFactory.mint(chainId, chef.address, PID, "1000000000000000000", owner.getAddress(), 0);
         expect(await synth.totalSupply()).to.be.equal("1000000000000000000");
     });
 
@@ -99,6 +99,6 @@ describe("Optimism Synth Chef", function () {
         await wrapper.convert(WETH_ADDR, STABLE_ADDR, ethers.utils.parseEther("0.05"));
         let stable = ERC20Factory.attach(STABLE_ADDR);
         await stable.approve(DEXonDemand.address, ethers.constants.MaxUint256);
-        await DEXonDemand.buy(stable.balanceOf(owner.getAddress()));
+        await DEXonDemand.buy(PID, stable.balanceOf(owner.getAddress()));
     });
 });

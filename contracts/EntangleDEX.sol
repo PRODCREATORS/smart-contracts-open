@@ -18,6 +18,8 @@ contract EntangleDEX is PausableAccessControl, Lender {
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
+    bytes32 public constant BUYER = keccak256("BUYER");
+    bytes32 public constant REBALANCER = keccak256("REBALANCER");
 
     event Rebalancing(address token, uint256 amount);
 
@@ -33,12 +35,14 @@ contract EntangleDEX is PausableAccessControl, Lender {
     constructor(
         address _feeCollector
     ) {
-
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(OWNER, OWNER);
         _setRoleAdmin(PAUSER_ROLE, ADMIN);
+        _setRoleAdmin(BUYER, ADMIN);
+        _setRoleAdmin(REBALANCER, ADMIN);
         _setRoleAdmin(BORROWER_ROLE, ADMIN);
         _setupRole(OWNER, msg.sender);
+        _setupRole(ADMIN, msg.sender);
 
         feeCollector = _feeCollector;
     }
@@ -57,6 +61,10 @@ contract EntangleDEX is PausableAccessControl, Lender {
         });
     }
 
+    function moveOpToken(IERC20 token, uint256 amount) external onlyRole(REBALANCER) {
+        token.safeTransfer(msg.sender, amount);
+    }
+
     /**
      * @notice Trade function to buy synth token.
      * @param _amount The amount of the source token being traded.
@@ -68,6 +76,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
     function buy(EntangleSynth _synth, uint256 _amount)
         public
         exist(_synth)
+        onlyRole(BUYER)
         whenNotPaused
         returns(uint256 synthAmount)
     {
@@ -83,6 +92,7 @@ contract EntangleDEX is PausableAccessControl, Lender {
     function sell(EntangleSynth _synth, uint256 _amount)
         public
         exist(_synth)
+        onlyRole(BUYER)
         whenNotPaused 
         returns (uint256 opTokenAmount)
     {
