@@ -8,7 +8,6 @@ import "./EntangleSynth.sol";
 import "./synth-chefs/BaseSynthChef.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "hardhat/console.sol";
 
 contract EntangleDEXOnDemand is AccessControl {
     using SafeERC20 for IERC20Metadata;
@@ -20,7 +19,6 @@ contract EntangleDEXOnDemand is AccessControl {
 
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
-    bytes32 public constant BUYER = keccak256("BUYER");
 
     /**
      * @dev Sets the values for `synth`, `pid`,`factory`,`opToken`,`rate` and `chef`.
@@ -40,12 +38,8 @@ contract EntangleDEXOnDemand is AccessControl {
     /**
      * @notice Trade function to buy synth token.
      * @param _amount The amount of the source token being traded.
-     *
-     * Requirements:
-     *
-     * - the caller must have `BUYER` role.
      */
-    function buy(uint256 _pid, uint256 _amount) external onlyRole(BUYER) {
+    function buy(uint256 _pid, uint256 _amount) external {
         EntangleSynth synth = factory.synths(block.chainid, address(chef), _pid);
         IERC20 opToken = IERC20(address(synth.opToken()));
         uint256 amountSynth = synth.convertOpAmountToSynthAmount(_amount);
@@ -73,12 +67,8 @@ contract EntangleDEXOnDemand is AccessControl {
     /**
      * @notice Trade function to sell synth token.
      * @param _amount The amount of the source token being traded.
-     *
-     * Requirements:
-     *
-     * - the caller must have `BUYER` role.
      */
-    function sell(uint256 _pid, uint256 _amount) external onlyRole(BUYER) {
+    function sell(uint256 _pid, uint256 _amount) external {
         EntangleSynth synth = factory.synths(block.chainid, address(chef), _pid);
         IERC20 opToken = IERC20(address(synth.opToken()));
         if (synth.allowance(address(this), address(factory)) < _amount) {

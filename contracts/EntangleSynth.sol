@@ -31,11 +31,11 @@ contract EntangleSynth is ERC20, AccessControl {
     }
 
     function convertSynthAmountToOpAmount(uint256 synthAmount) public view returns (uint256 opAmount) {
-        opAmount = synthAmount * price / (10 ** decimals());
+        opAmount = (synthAmount * price / (10 ** decimals())) / (10 ** (decimals() - ERC20(address(opToken)).decimals()));
     }
 
     function convertOpAmountToSynthAmount(uint256 opAmount) public view returns (uint256 synthAmount) {
-        synthAmount = opAmount * (10 ** decimals()) / price;
+        synthAmount = (opAmount * (10 ** decimals()) / price) * (10 ** (decimals() - ERC20(address(opToken)).decimals()));
     }
 
     /** @dev Creates `_amount` SynthTokens and assigns them to `_to`, increasing

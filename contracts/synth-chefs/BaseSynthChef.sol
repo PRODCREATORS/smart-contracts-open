@@ -25,8 +25,8 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
 
-    event Deposit(uint256 indexed pid, uint256 amount, uint256 opId);
-    event Withdraw(uint256 indexed pid, uint256 amount, uint256 opId);
+    event Deposit(uint256 pid, uint256 amount, uint256 opId);
+    event Withdraw(uint256 pid, uint256 amount, uint256 opId);
     event Compound(uint256 indexed pid, uint256 amountStable);
 
     constructor(
@@ -45,8 +45,10 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
         _setRoleAdmin(BORROWER_ROLE, ADMIN_ROLE);
-        _grantRole(ADMIN_ROLE, address(this)); // needed for calling this.deposit in compound
+        _setRoleAdmin(PAUSER_ROLE, ADMIN_ROLE);
+        // _grantRole(ADMIN_ROLE, address(this)); // needed for calling this.deposit in compound
         _setupRole(OWNER_ROLE, msg.sender);
+        _setupRole(ADMIN_ROLE, msg.sender);
     }
 
     function deposit(
@@ -68,9 +70,8 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         uint256 _amount,
         address _to,
         uint256 _opId
-    ) public onlyRole(ADMIN_ROLE) whenNotPaused {
-        uint256 _stablecoinAmount = _previewConvertTokens(_toToken, address(stablecoin), _amount);
-        uint256 _amountLP = _convertStablecoinAmountToLPAmount(_pid, _stablecoinAmount);
+    ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        uint256 _amountLP = _convertStablecoinAmountToLPAmount(_pid, _amount);
         _withdrawFromFarm(_pid, _amountLP);
         TokenAmount[] memory tokens = _removeLiquidity(_pid, _amountLP);
         uint256 tokenAmount = 0;
@@ -85,13 +86,13 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         emit Withdraw(_pid, _amount, _opId);
     }
 
-    function compound(uint256 _pid) public onlyRole(ADMIN_ROLE) whenNotPaused {
+    function compound(uint256 _pid) external onlyRole(ADMIN_ROLE) whenNotPaused {
         _harvest(_pid);
         for (uint i = 0; i < rewardTokens.length; i++) {
             uint256 balance = IERC20(rewardTokens[i]).balanceOf(address(this));
             if (balance > 0) {
                 uint256 feeAmount = (balance * fee) / feeRate;
-                this.deposit(
+                deposit(
                     _pid,
                     address(rewardTokens[i]),
                     balance - feeAmount,
@@ -199,21 +200,21 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
     }
 
     function setFeeCollector(address _feeCollector)
-        public
+        external
         onlyRole(ADMIN_ROLE)
     {
         feeCollector = _feeCollector;
     }
 
     function setRewardTokens(address[] memory _rewardTokens)
-        public
+        external
         onlyRole(ADMIN_ROLE)
     {
         rewardTokens = _rewardTokens;
     }
 
     function setDEXWrapper(IEntangleDEXWrapper _DEXWrapper)
-        public
+        external
         onlyRole(ADMIN_ROLE)
     {
         DEXWrapper = _DEXWrapper;

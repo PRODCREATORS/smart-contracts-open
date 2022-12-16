@@ -32,9 +32,9 @@ contract EntangleLending is PausableAccessControl {
     mapping(uint256 => Loan) public loans;
 
     event GetLoan(uint256 loanId, uint256 opId);
-    event RepayLoan(uint256 loanId);
+    event RepayLoan(uint256 loanId, uint256 opId);
 
-    uint256 private nextLoanId = 0;
+    uint256 private nextLoanId = 0; //?
 
     function getLoan(uint256 loanId) public view returns(Loan memory) {
         return loans[loanId];
@@ -47,17 +47,27 @@ contract EntangleLending is PausableAccessControl {
             token: token,
             lender: lender
             });
-        IPausable(address(lender)).pause();
         lender.borrow(token, amount, receiver);
+        IPausable(address(lender)).pause();
         emit GetLoan(nextLoanId, opId);
         nextLoanId++;
     }
 
-    function repay(uint256 loanId) external onlyRole(BORROWER_ROLE) whenNotPaused {
+    function repay(uint256 loanId, uint256 opId) external onlyRole(BORROWER_ROLE) whenNotPaused {
         Loan storage loan = loans[loanId];
-        IPausable(address(loan.lender)).unpause();
         loan.token.safeTransferFrom(msg.sender, address(loan.lender), loan.amount);
-        emit RepayLoan(loanId);
+        IPausable(address(loan.lender)).unpause();
+        emit RepayLoan(loanId, opId);
         delete loans[loanId];
+    }
+
+    function authorizeLender(address lender) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        require(lender != address(0), "Invalid lender");
+        lenders[lender] = true;
+    }
+
+    function disableLender(address lender) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        require(lenders[lender], "Already disabled");
+        lenders[lender] = false;
     }
 }

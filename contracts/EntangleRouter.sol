@@ -12,8 +12,6 @@ import "./synth-chefs/BaseSynthChef.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntanglePool.sol";
 import "./EntangleLending.sol";
-import "hardhat/console.sol";
-
 
 interface Ipool {
     function depositToken(uint256 amount) external;
@@ -36,7 +34,8 @@ interface IBridge {
         uint8 swapTokenIndexFrom,
         uint8 swapTokenIndexTo,
         uint256 swapMinDy,
-        uint256 swapDeadline) external;
+        uint256 swapDeadline
+    ) external;
 }
 
 contract EntangleRouter is PausableAccessControl {
@@ -46,6 +45,10 @@ contract EntangleRouter is PausableAccessControl {
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
+
+    uint256 zFactor;
+    uint8 zFactorDecimals;
+    uint8 accuracy;
 
     BaseSynthChef chef;
 
@@ -59,7 +62,10 @@ contract EntangleRouter is PausableAccessControl {
 
     IBridge bridge;
 
-    enum EventType { BUY, SELL }
+    enum EventType {
+        BUY,
+        SELL
+    }
 
     struct BridgeParams {
         IERC20 tokenToBridge;
@@ -77,8 +83,8 @@ contract EntangleRouter is PausableAccessControl {
         uint256 swapDeadline;
     }
 
-    event EventA(EventType _type, uint256 amount, uint256 pid, uint256 k);
-    event EventBC(EventType _type, uint256 amount, uint256 pid, address user);
+    event EventA(EventType _type, uint256 amount, uint256 pid, uint256 chainId, uint256 k);
+    event EventBC(EventType _type, uint256 amount, uint256 pid, uint256 chainId, address user);
 
     constructor(
         EntanglePool _pool,
@@ -86,7 +92,10 @@ contract EntangleRouter is PausableAccessControl {
         BaseSynthChef _chef,
         EntangleSynthFactory _factory,
         EntangleLending _lending,
-        IBridge _bridge
+        IBridge _bridge,
+        uint256 _zFactor,
+        uint8 _zFactorDecimals,
+        uint8 _accuracy
     ) {
         _setRoleAdmin(ADMIN, OWNER);
         _setRoleAdmin(PAUSER_ROLE, ADMIN);
@@ -99,7 +108,12 @@ contract EntangleRouter is PausableAccessControl {
         chef = _chef;
         factory = _factory;
         lending = _lending;
+
+        zFactor = _zFactor;
+        zFactorDecimals = _zFactorDecimals;
+        accuracy = _accuracy;
     }
+
     function buy(EntangleSynth synth, uint256 amountOp)
         external
         whenNotPaused
@@ -110,29 +124,40 @@ contract EntangleRouter is PausableAccessControl {
         if (opToken.allowance(address(this), address(idex)) < amountOp) {
             opToken.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
-        if (synth.convertOpAmountToSynthAmount(amountOp) > synth.balanceOf(address(idex))) {
-            emit EventBC(EventType.BUY, amountOp, synth.pid(), msg.sender);
-        }
-        else {
+        if (
+            synth.convertOpAmountToSynthAmount(amountOp) >
+            synth.balanceOf(address(idex))
+        ) {
+            emit EventBC(EventType.BUY, amountOp, synth.pid(), synth.chainId(), msg.sender);
+        } else {
             synthAmount = idex.buy(synth, amountOp);
             synth.safeTransfer(msg.sender, synthAmount);
             checkEventA(synth);
         }
     }
 
-    function sell(
-        EntangleSynth synth,
-        uint256 amount
-    ) external whenNotPaused returns(uint256 opTokenAmount){
+    function sell(EntangleSynth synth, uint256 amount)
+        external
+        whenNotPaused
+        returns (uint256 opTokenAmount)
+    {
         IERC20 opToken = synth.opToken();
         synth.safeTransferFrom(msg.sender, address(this), amount);
         if (synth.allowance(address(this), address(idex)) < amount) {
             synth.safeIncreaseAllowance(address(idex), type(uint256).max);
         }
-        if (synth.convertSynthAmountToOpAmount(amount) > synth.opToken().balanceOf(address(idex))) {
-            emit EventBC(EventType.SELL, synth.convertSynthAmountToOpAmount(amount), synth.pid(), msg.sender);
-        }
-        else {
+        if (
+            synth.convertSynthAmountToOpAmount(amount) >
+            synth.opToken().balanceOf(address(idex))
+        ) {
+            emit EventBC(
+                EventType.SELL,
+                synth.convertSynthAmountToOpAmount(amount),
+                synth.pid(),
+                synth.chainId(),
+                msg.sender
+            );
+        } else {
             opTokenAmount = idex.sell(synth, amount);
             opToken.safeTransfer(msg.sender, opTokenAmount);
             checkEventA(synth);
@@ -146,8 +171,13 @@ contract EntangleRouter is PausableAccessControl {
         uint256 _opId
     ) external onlyRole(ADMIN) whenNotPaused {
         IERC20(_tokenFrom).safeTransferFrom(msg.sender, address(this), _amount);
-        if (IERC20(_tokenFrom).allowance(address(this), address(chef)) < _amount) {
-            IERC20(_tokenFrom).safeIncreaseAllowance(address(chef), type(uint256).max);
+        if (
+            IERC20(_tokenFrom).allowance(address(this), address(chef)) < _amount
+        ) {
+            IERC20(_tokenFrom).safeIncreaseAllowance(
+                address(chef),
+                type(uint256).max
+            );
         }
         chef.deposit(_pid, _tokenFrom, _amount, _opId);
     }
@@ -158,10 +188,15 @@ contract EntangleRouter is PausableAccessControl {
         address _toToken,
         uint256 _opId
     ) external onlyRole(ADMIN) whenNotPaused {
-        chef.withdraw(_pid, _toToken, _amount, msg.sender, _opId);
+        chef.withdraw(_pid, _toToken, _amount, address(this), _opId);
     }
 
-    function depositFromPool(uint256 amount, IERC20 token, uint256 pid, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function depositFromPool(
+        uint256 amount,
+        IERC20 token,
+        uint256 pid,
+        uint256 opId
+    ) external onlyRole(ADMIN) whenNotPaused {
         pool.withdrawToken(amount, token, address(this), opId);
         if (token.allowance(address(this), address(chef)) < amount) {
             token.safeIncreaseAllowance(address(chef), type(uint256).max);
@@ -169,15 +204,28 @@ contract EntangleRouter is PausableAccessControl {
         chef.deposit(pid, address(token), amount, opId);
     }
 
-    function withdrawFromPool(address to, IERC20 token, uint256 amount, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function withdrawFromPool(
+        address to,
+        IERC20 token,
+        uint256 amount,
+        uint256 opId
+    ) external onlyRole(ADMIN) whenNotPaused {
         pool.withdrawToken(amount, token, to, opId);
     }
 
-    function bridgeToChain(
-        BridgeParams memory params
-    ) external onlyRole(ADMIN) whenNotPaused {
-        if (params.tokenToBridge.allowance(address(this), address(bridge)) < params.dx) {
-            params.tokenToBridge.safeIncreaseAllowance(address(bridge), type(uint256).max);
+    function bridgeToChain(BridgeParams calldata params)
+        external
+        onlyRole(ADMIN)
+        whenNotPaused
+    {
+        if (
+            params.tokenToBridge.allowance(address(this), address(bridge)) <
+            params.dx
+        ) {
+            params.tokenToBridge.safeIncreaseAllowance(
+                address(bridge),
+                type(uint256).max
+            );
         }
         bridge.swapAndRedeemAndSwap(
             params.to,
@@ -194,21 +242,46 @@ contract EntangleRouter is PausableAccessControl {
             params.swapDeadline
         );
     }
-    
+
     function checkEventA(EntangleSynth synth) public {
-        uint256 soldSynths = synth.totalSupply() - synth.balanceOf(address(idex)); 
-        uint256 neededOpBalance = synth.convertSynthAmountToOpAmount(soldSynths);
-        uint256 currentOpBalance = synth.opToken().balanceOf(address(idex));
-        uint256 k = 100 * currentOpBalance / neededOpBalance;
-        if (k < 50) {
-            emit EventA(EventType.SELL, neededOpBalance - currentOpBalance, synth.pid(), k);
-        } 
-        if (k > 150 ) {
-            emit EventA(EventType.BUY, currentOpBalance - neededOpBalance, synth.pid(), k);
+        uint256 soldSynths = synth.totalSupply() -
+            synth.balanceOf(address(idex));
+        uint256 neededOpBalance = synth.convertSynthAmountToOpAmount(
+            soldSynths
+        );
+        if (neededOpBalance == 0) {
+            return;
         }
+        uint256 currentOpBalance = synth.opToken().balanceOf(address(idex));
+        uint256 k = (((currentOpBalance * 10**accuracy) / neededOpBalance) *
+            10**zFactorDecimals) / zFactor;
+        uint256 amountToRebalance;
+        EventType _type;
+        if (k == 10**accuracy) {
+            return;
+        }
+        if (k > 10**accuracy) {
+            amountToRebalance = currentOpBalance - 
+                (neededOpBalance * (10**zFactorDecimals - zFactor)) /
+                10**zFactorDecimals;
+            _type = EventType.BUY;
+        }
+        if (k < 10**accuracy) {
+            amountToRebalance =
+                ((neededOpBalance * zFactor) / 10**zFactorDecimals) -
+                currentOpBalance;
+            _type = EventType.SELL;
+        }
+        emit EventA(_type, amountToRebalance, synth.pid(), synth.chainId(), k);
     }
 
-    function borrowAndDeposit(uint256 amount, IERC20 token, ILender lender, uint256 pid, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function borrowAndDeposit(
+        uint256 amount,
+        IERC20 token,
+        ILender lender,
+        uint256 pid,
+        uint256 opId
+    ) external onlyRole(ADMIN) whenNotPaused {
         lending.borrow(amount, token, lender, address(this), opId);
         if (token.allowance(address(this), address(chef)) < amount) {
             token.safeIncreaseAllowance(address(chef), type(uint256).max);
@@ -216,23 +289,62 @@ contract EntangleRouter is PausableAccessControl {
         chef.deposit(pid, address(token), amount, opId);
     }
 
-    function borrow(uint256 amount, IERC20 token, ILender lender, address receiver, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function borrow(
+        uint256 amount,
+        IERC20 token,
+        ILender lender,
+        address receiver,
+        uint256 opId
+    ) external onlyRole(ADMIN) whenNotPaused {
         lending.borrow(amount, token, lender, receiver, opId);
     }
 
-    function repayFromPool(uint256 loanId, uint256 opId) external onlyRole(ADMIN) whenNotPaused {
+    function repayFromPool(uint256 loanId, uint256 opId)
+        external
+        onlyRole(ADMIN)
+        whenNotPaused
+    {
         EntangleLending.Loan memory loan = lending.getLoan(loanId);
         pool.withdrawToken(loan.amount, loan.token, address(this), opId);
-        if (loan.token.allowance(address(this), address(lending)) < loan.amount) {
-            loan.token.safeIncreaseAllowance(address(lending), type(uint256).max);
+        if (
+            loan.token.allowance(address(this), address(lending)) < loan.amount
+        ) {
+            loan.token.safeIncreaseAllowance(
+                address(lending),
+                type(uint256).max
+            );
         }
-        lending.repay(loanId);
+        lending.repay(loanId, opId);
     }
 
-    function checkBalanceSynth(
-        EntangleSynth _synth,
-        uint256 _amount
-    ) internal view returns (bool) {
+    function moveOpTokenFromDEXToPool(EntangleSynth synth, uint256 amount) external onlyRole(ADMIN) whenNotPaused {
+        moveOpTokenFromDEX(synth, amount);
+        IERC20 opToken = synth.opToken();
+        opToken.transfer(address(pool), amount);
+    }
+
+    function moveOpTokenToDEX(EntangleSynth synth, uint256 amount)
+        external
+        onlyRole(ADMIN)
+        whenNotPaused
+    {
+        IERC20 opToken = synth.opToken();
+        opToken.transfer(address(idex), amount);
+    }
+
+    function moveOpTokenFromDEX(EntangleSynth synth, uint256 amount)
+        public
+        onlyRole(ADMIN)
+        whenNotPaused
+    {
+        idex.moveOpToken(synth.opToken(), amount);
+    }
+
+    function checkBalanceSynth(EntangleSynth _synth, uint256 _amount)
+        internal
+        view
+        returns (bool)
+    {
         return _synth.balanceOf(address(idex)) < _amount;
     }
 
