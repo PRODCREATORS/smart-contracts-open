@@ -2,15 +2,16 @@
 pragma solidity 0.8.15;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol"
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract EntTestBridge is AccessControl {
+contract EntangleTestBridge is AccessControl {
     using SafeERC20 for IERC20;
 
     mapping(address => uint256) public tokenStorage;
-    bytes32 public constant OWNER_ROLE = keccak256("OWNER");
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    mapping(uint => address) public idsToToken;
+    bytes32 public constant OWNER = keccak256("OWNER");
+    bytes32 public constant ADMIN = keccak256("ADMIN");
 
     event Deposit(address token, uint256 amount);
     event Withdraw(address token, uint256 amount);
@@ -28,7 +29,7 @@ contract EntTestBridge is AccessControl {
     );
     event TokenMintAndSwap(
         address indexed to,
-        IERC20Mintable token,
+        IERC20 token,
         uint256 amount,
         uint256 fee,
         uint8 tokenIndexFrom,
@@ -39,17 +40,26 @@ contract EntTestBridge is AccessControl {
         bytes32 indexed kappa
     );
 
+    constructor() public {
+        _setRoleAdmin(ADMIN, OWNER);
+        _setupRole(OWNER, msg.sender);
+    }
+
+    function addTokenId(uint id, address token) external onlyRole(ADMIN) {
+        idsToToken[id] = address(token);
+    }
+
     function deposit(IERC20 token, uint256 amount) external onlyRole(ADMIN) {
         token.safeTransferFrom(msg.sender, address(this), amount);
-        tokenStorage[token] += amount;
-        emit Deposit(token, amount);
+        tokenStorage[address(token)] += amount;
+        emit Deposit(address(token), amount);
     }
 
     function withdraw(IERC20 token, uint256 amount) external onlyRole(ADMIN) {
-        require(tokenStorage[token] >= amount, "Not enought liquidity");
+        require(tokenStorage[address(token)] >= amount, "Not enought liquidity");
         token.safeTransferFrom(address(this), msg.sender, amount);
-        tokenStorage[token] -= amount;
-        emit Withdraw(token, amount);
+        tokenStorage[address(token)] -= amount;
+        emit Withdraw(address(token), amount);
     }
 
     // synapse bridge function emu
@@ -67,13 +77,13 @@ contract EntTestBridge is AccessControl {
         uint256 swapMinDy,
         uint256 swapDeadline
     ) external onlyRole(ADMIN) {
-        token.safeTransferFrom(msg.sender, address(this), amount)
-        tokenStorage[token] += amount;
+        token.safeTransferFrom(msg.sender, address(this), dx);
+        tokenStorage[address(token)] += dx;
 
         emit TokenRedeemAndSwap(to,
                 chainId,
                 token,
-                amount,
+                dx,
                 tokenIndexFrom,
                 tokenIndexTo,
                 minDy,
@@ -82,19 +92,19 @@ contract EntTestBridge is AccessControl {
 
     function SwapTo(
         address payable to,
-        IERC20Mintable token,
+        IERC20 token,
         uint256 amount,
         uint256 fee,
-        ISwap pool,
         uint8 tokenIndexFrom,
         uint8 tokenIndexTo,
         uint256 minDy,
         uint256 deadline
     ) external onlyRole(ADMIN) {
-
-        require(tokenStorage[token] >= amount, "Not enought liquidity");
-        token.safeTransferFrom(address(this), to, amount);
-        tokenStorage[token] -= amount;
+        require(idsToToken[tokenIndexTo] != address(0), "tokenIndexTo wasn't found");
+        IERC20 tokenTo = IERC20(idsToToken[tokenIndexTo]);
+        require(tokenStorage[address(tokenTo)] >= amount, "Not enought liquidity");
+        tokenTo.safeTransferFrom(address(this), to, amount);
+        tokenStorage[address(tokenTo)] -= amount;
 
         emit TokenMintAndSwap(to,
                 token,

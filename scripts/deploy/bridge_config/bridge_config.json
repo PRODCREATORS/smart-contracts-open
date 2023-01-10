@@ -1,0 +1,33 @@
+{
+    "bridgeKeeperAddress": "",
+    "tokens": {
+        "usdc": {
+            "networks": {
+                "tbsc": {
+                    "id": 2,
+                    "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"
+                },
+                "teth": {
+                    "id": 2,
+                    "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+                },
+                "tavax": {
+                    "id": 2,
+                    "address": "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664"
+                },
+                "tftm": {
+                    "id": 1,
+                    "address": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75"
+                },
+                "topt": {
+                    "id": 2,
+                    "address": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607"
+                },
+                "tarb": {
+                    "id": 2,
+                    "address": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+                }
+            }
+        }
+    }
+}
