@@ -45,7 +45,7 @@ contract EntangleRouter is PausableAccessControl {
 
     bytes32 public constant OWNER = keccak256("OWNER");
     bytes32 public constant ADMIN = keccak256("ADMIN");
-
+    
     uint256 zFactor;
     uint8 zFactorDecimals;
     uint8 accuracy;

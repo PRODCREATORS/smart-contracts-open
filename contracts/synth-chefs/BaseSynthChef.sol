@@ -46,6 +46,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
         _setRoleAdmin(OWNER_ROLE, OWNER_ROLE);
         _setRoleAdmin(BORROWER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE,  ADMIN_ROLE);
         _grantRole(ADMIN_ROLE, address(this)); // needed for calling this.deposit in compound
         _setupRole(OWNER_ROLE, msg.sender);
     }

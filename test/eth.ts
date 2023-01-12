@@ -1,7 +1,7 @@
 import { UniswapWrapper__factory } from "../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory";
 import { expect } from "chai";
 import { Signer, Contract } from "ethers";
-import { ethers } from "hardhat";
+import hre, { ethers } from "hardhat";
 import { ETHSynthChef } from "../typechain-types/contracts/synth-chefs/ETHSynthChef.sol";
 import { ETHSynthChef__factory } from "../typechain-types/factories/contracts/synth-chefs/ETHSynthChef.sol";
 import { UniswapWrapper } from "../typechain-types/contracts/dex-wrappers/UniswapWrapper";
@@ -159,7 +159,12 @@ const WETH_ABI = [
     type: "function",
   },
 ];
-
+async function trace<T>(fn: () => Promise<T>): Promise<T> {
+  hre.tracer.enabled = !!process.env.TRACE;
+  const out = await fn();
+  hre.tracer.enabled = false;
+  return out;
+}
 describe("ETH Synth Chef", function () {
   let chef: ETHSynthChef;
   let owner: Signer;
@@ -210,7 +215,8 @@ describe("ETH Synth Chef", function () {
   it("Deposit", async function () {
     await weth.approve(chef.address, ethers.constants.MaxUint256);
     await chef.deposit(0, weth.address, ethers.utils.parseEther("1.0"), 0);
-    expect(await chef.getBalanceOnFarm(0)).to.be.greaterThan(0);
+    let onFarm = await chef.getBalanceOnFarm(0);
+    expect(onFarm).to.be.greaterThan(0);
   });
 
   it("Compound", async function () {
@@ -220,16 +226,18 @@ describe("ETH Synth Chef", function () {
     let balanceAfterCompound = await chef.getBalanceOnFarm(0);
     expect(balanceAfterCompound).to.be.greaterThan(balanceBeforeCompound);
   });
-
+  
   it("Withdraw", async function () {
     let balanceBeforeWithdraw = await chef.getBalanceOnFarm(0);
-    await chef.withdraw(
+
+    const tx = await trace(() => chef.withdraw(
       0,
       "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-      chef.getLPAmountOnFarm(0),
+      1200_000_000, // USDC is 6 decimals
       owner.getAddress(),
-      0
-    );
+      0,
+    ));
+    await tx.wait(1)
     let balanceAfterWithdraw = await chef.getBalanceOnFarm(0);
     expect(balanceAfterWithdraw).to.be.lessThan(balanceBeforeWithdraw);
   });

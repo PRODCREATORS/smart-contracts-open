@@ -12,6 +12,9 @@ import path from "path";
 import { OptimismSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/OptimismSynthChef.sol/OptimismSynthChef__factory";
 import { VelodromeWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/VelodromeWrapper.sol";
 import { VelodromeWrapper } from "../../typechain-types/contracts/dex-wrappers/VelodromeWrapper.sol/VelodromeWrapper";
+import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
+import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
+
 export default async function main(
     STABLE_ADDR: string,
     BRIDGE_ADDR: string,
@@ -47,6 +50,12 @@ export default async function main(
     const IDEXFactory = (await ethers.getContractFactory(
         "EntangleDEX"
     )) as EntangleDEX__factory;
+    const PauserFactory = (await ethers.getContractFactory(
+        "Pauser"
+    )) as Pauser__factory;
+    const FaucetFactory = (await ethers.getContractFactory(
+        "Faucet"
+    )) as Faucet__factory;
 
     let wrapper = (await WrapperFactory.deploy(
         UNISWAP_ROUTER
@@ -92,15 +101,29 @@ export default async function main(
         2
     );
     await router.deployed();
+    let pauser = await PauserFactory.deploy(
+        [   
+            chef.address, 
+            factory.address, 
+            DEXonDemand.address, 
+            pool.address, 
+            idex.address, 
+            router.address,
+            lending.address,
 
+        ]
+        );
+        await pauser.deployed();
+    let faucet = await FaucetFactory.deploy()
+    await faucet.deployed();
+
+    
     await (
         await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
     ).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.ADMIN(), await owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
-    await (await chef.grantRole(chef.PAUSER_ROLE(), lending.address)).wait();
-    await (await idex.grantRole(idex.PAUSER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.REBALANCER(), router.address)).wait();
     await (await idex.grantRole(idex.BUYER(), router.address)).wait();
     await (
@@ -121,9 +144,6 @@ export default async function main(
             DEXonDemand.ADMIN_ROLE(),
             await owner.getAddress()
         )
-    ).wait();
-    await (
-        await DEXonDemand.grantRole(DEXonDemand.BUYER(), owner.getAddress())
     ).wait();
     await (await chef.grantRole(chef.ADMIN_ROLE(), DEXonDemand.address)).wait();
     await (await chef.grantRole(chef.ADMIN_ROLE(), router.address)).wait();

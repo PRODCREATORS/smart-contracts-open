@@ -64,7 +64,7 @@ export default async function deploy(
     )) as UniswapWrapper;
     await wrapper.deployed();
     let chef = await ChefFactory.deploy(
-        "0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614", //router
+        "0x45A01E4e04F14f7A4a6702c74187c5F6222033cd", //router
         wrapper.address, //dex interface
         STABLE_ADDR, //stable
         REWARD_TOKEN, //reward
@@ -163,9 +163,9 @@ export default async function deploy(
     await (await lending.authorizeLender(idex.address)).wait();
 
     await chef.addPool(
-        "0x892785f33CdeE22A30AEF750F285E18c18040c3e",
-        "0xeA8DfEE1898a7e0a59f7527F076106d7e44c2176",
-        "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+        "0x1205f31718499dBf1fCa446663B532Ef87481fe1",
+        "0x8731d54E9D02c286767d56ac03e8037C07e01e98",
+        "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
         0,
         1
     );
