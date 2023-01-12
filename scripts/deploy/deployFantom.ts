@@ -154,6 +154,14 @@ export default async function main(
         await factory.grantRole(factory.MINT_ROLE(), DEXonDemand.address)
     ).wait();
 
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+     await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait(); 
+     await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
+     await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
+     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
+     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait(); 
+
     await (
         await chef.addPool(
             "0x364705F8D0744230f39BC176e0270d90dbc72E50",
