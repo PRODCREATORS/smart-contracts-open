@@ -13,7 +13,7 @@ import { Faucet__factory } from "../../typechain-types/factories/contracts/Fauce
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
-import { ArbitrumSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol";
+import { PolygonSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/PolygonSynthChef.sol";
 
 export default async function deploy(
     WETH_ADDR: string,
@@ -40,8 +40,8 @@ export default async function deploy(
         "UniswapWrapper"
     )) as UniswapWrapper__factory;
     const ChefFactory = (await ethers.getContractFactory(
-        "ArbitrumSynthChef"
-    )) as ArbitrumSynthChef__factory;
+        "PolygonSynthChef"
+    )) as PolygonSynthChef__factory;
     const SynthFactoryFactory = (await ethers.getContractFactory(
         "EntangleSynthFactory"
     )) as EntangleSynthFactory__factory;

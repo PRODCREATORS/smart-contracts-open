@@ -7,6 +7,7 @@ import eth_deploy from "../deploy/deployETH";
 import arb_deploy from "../deploy/deployArbitrum";
 import op_deploy from "../deploy/deployOptimism";
 import bridge_deploy from "../deploy/deployTestBridge";
+import mat_deploy from "../deploy/deployPolygon";
 
 export async function scaffold(net: string = hre.network.name) {
     switch (net) {
@@ -85,6 +86,7 @@ export async function scaffold(net: string = hre.network.name) {
                 STABLE_ADDR,
                 UNISWAP_ROUTER,
                 MASTER_CHEF,
+                BRIDGE_ADDR,
                 REWARD_TOKEN,
             );
             break;
@@ -127,7 +129,13 @@ export async function scaffold(net: string = hre.network.name) {
             const UNISWAP_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
             const REWARD_TOKEN = ["0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590"]
 
-            //await mat_deploy
+            await mat_deploy(
+                WETH_ADDR,
+                STABLE_ADDR,
+                BRIDGE_ADDR,
+                UNISWAP_ROUTER,
+                REWARD_TOKEN,
+            )
         }
     }
 }
