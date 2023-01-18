@@ -173,11 +173,11 @@ export default async function deploy(
     let addr = await factory.previewSynthAddress(
         chainId,
         chef.address,
-        PID,
+        0,
         STABLE_ADDR
     );
     await (
-        await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR)
+        await factory.createSynth(chainId, chef.address, 0, STABLE_ADDR)
     ).wait();
     let synth = EntangleSynth__factory.connect(addr, owner);
     await (await synth.setPrice(BigInt("2000000000000000000"))).wait();

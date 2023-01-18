@@ -22,7 +22,7 @@ export default async function deploy(
     UNISWAP_ROUTER: string,
     REWARD_TOKEN: string[]
 ) {
-    const PID = 8;
+    const PID = 0;
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
