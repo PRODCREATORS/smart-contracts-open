@@ -207,7 +207,10 @@ export default async function main(
             idex: idex.address,
             pool: pool.address,
             lending: lending.address,
-            opToken: STABLE_ADDR
+            opToken: STABLE_ADDR,
+            bridge: BRIDGE_ADDR,
+            pauser: pauser.address,
+            faucet: faucet.address
         })
     );
     // await fs.writeFile(

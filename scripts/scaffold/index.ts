@@ -136,6 +136,7 @@ export async function scaffold(net: string = hre.network.name) {
                 UNISWAP_ROUTER,
                 REWARD_TOKEN,
             )
+            break;
         }
     }
 }

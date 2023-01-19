@@ -205,6 +205,9 @@ export default async function main(
             pool: pool.address,
             lending: lending.address,
             opToken: STABLE_ADDR,
+            bridge: BRIDGE_ADDR,
+            pauser: pauser.address,
+            faucet: faucet.address
         })
     );
 
