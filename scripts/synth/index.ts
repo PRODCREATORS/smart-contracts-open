@@ -14,36 +14,36 @@ const synthInfo = {
         },
         tbsc: {
             "stable": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-            "factory": "0x8578a07701cBC144864cDC6ba5B9b144f5FbFCdF",
-            "chef": "0x55Cf4252780A3a9D9aA8973b1E78A87F677ffdDB",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "56",
             "pid": "7"
         },
         tmat: {
             "stable": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
-            "factory": "0xC3722770414Efa075B970f2C26ec35033beC4210",
-            "chef": "0x5682524317Dc4a570015f0811fCcBAba260b2eE2",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "137",
             "pid": "0"
         },
         tftm: {
             "stable": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",
-            "factory": "0xC53248C1a13375BefCE7DbfaEE518fF1c3162686",
-            "chef": "0xf5D2b203326fb7502C2ebe66C3c028280F3ab45C",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "250",
             "pid": "0"
         },
         tarb: {
             "stable": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-            "factory": "0x5D6Ed3D3dA052D17b0C5308162075AAaa9697be4",
-            "chef": "0x1787f3E475FB74855097eB6609Cb0B5FF302999d",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "42161",
             "pid": "0"
         },
         tavax: {
             "stable": "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664",
-            "factory": "0xDD8E173dB912896F6b4C0Eb0a35C8e66B3BA4A67",
-            "chef": "0xB8BCA0b7AC8E46AF4a41DEEBB351659c613d45A2",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "43114",
             "pid": "51"
         },
@@ -57,6 +57,7 @@ export default async function deploy() {
     let SynthFactory: Contract;
 
     let net: string = hre.network.name;
+    console.log(net);
     switch (net) {
         case "tftm": {
             SynthFactory = new ethers.Contract(synthInfo[net].factory, abi, owner);
@@ -105,6 +106,7 @@ export default async function deploy() {
         let synth = EntangleSynth__factory.connect(addr, owner);
         await (await synth.setPrice("2000000000000000000")).wait();
     }
+    console.log("ues")
     if(net != "tftm") {
         let addr = await SynthFactory.previewSynthAddress(
             synthInfo.tftm.chainId,
@@ -170,4 +172,7 @@ export default async function deploy() {
         let synth = EntangleSynth__factory.connect(addr, owner);
         await (await synth.setPrice("2000000000000000000")).wait();
     }
+    console.log("done")
 }
+
+deploy()//.catch(console.log);
