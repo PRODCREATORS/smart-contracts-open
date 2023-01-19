@@ -4,7 +4,7 @@ import { EntangleSynthFactory__factory } from "../../typechain-types/factories/c
 import { EntangleSynth__factory } from "../../typechain-types/factories/contracts/EntangleSynth__factory";
 import { abi } from "../../artifacts/contracts/EntangleSynthFactory.sol/EntangleSynthFactory.json";
 import hre from "hardhat";
-const synthInfo = {
+export const synthInfo = {
         top: {
             "stable": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
             "factory": "0x05988fb4BBB979b9dA4bB43d51D93646078311DF",
@@ -47,9 +47,7 @@ const synthInfo = {
             "chainId": "43114",
             "pid": "51"
         },
-        teth: {
-            "factory": ""
-        }
+
 }
 
 export default async function deploy() {
@@ -72,10 +70,10 @@ export default async function deploy() {
             SynthFactory = new ethers.Contract(synthInfo[net].factory, abi, owner);
             break;
         }
-        case "teth": {
-            SynthFactory = new ethers.Contract(synthInfo[net].factory, abi, owner);
-            break;
-        }
+        // case "teth": {
+        //     SynthFactory = new ethers.Contract(synthInfo[net].factory, abi, owner);
+        //     break;
+        // }
         case "top": {
             SynthFactory = new ethers.Contract(synthInfo[net].factory, abi, owner);
             break;
