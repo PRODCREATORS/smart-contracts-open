@@ -14,7 +14,7 @@ contract Faucet is AccessControl {
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    uint256 public constant ETH_AMOUNT = 100 ether;
+    uint256 public constant ETH_AMOUNT = 10 ether;
 
     event Deposit(address token, uint256 amount);
     event Send(address to, address token, uint256 amount);
@@ -33,8 +33,8 @@ contract Faucet is AccessControl {
     }
 
     function send(address payable to, IERC20 token, uint256 amount) external onlyRole(ADMIN_ROLE) {
-        require(address(this).balance > ETH_AMOUNT, "Not enought ETH balance");
-        require(tokenStorage[address(token)] > amount, "Not enought liquidity in storage.");
+        require(address(this).balance >= ETH_AMOUNT, "Not enought ETH balance");
+        require(tokenStorage[address(token)] >= amount, "Not enought liquidity in storage.");
         token.safeTransfer(to, amount);
         to.transfer(ETH_AMOUNT);
         tokenStorage[address(token)] -= amount;
