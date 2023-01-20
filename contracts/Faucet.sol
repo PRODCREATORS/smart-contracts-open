@@ -14,7 +14,7 @@ contract Faucet is AccessControl {
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    uint256 public constant ETH_AMOUNT = 100 ether;
+    uint256 public constant ETH_AMOUNT = 10 ether;
 
     event Deposit(address token, uint256 amount);
     event Send(address to, address token, uint256 amount);
