@@ -87,6 +87,7 @@ export default async function deploy() {
             break;
         }
         default: {
+            return;
             SynthFactory = new ethers.Contract(synthInfo.tmat.factory, abi, owner);
             break;
         }
