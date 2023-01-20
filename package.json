@@ -9,7 +9,9 @@
     "eth": "NETWORK=eth NETWORK_URL=https://rpc.ankr.com/eth FROM_BLOCK=15720107 CHAIN_ID=101 npx hardhat node --port 8542 ",
     "avax": "NETWORK=avax NETWORK_URL=https://api.avax.network/ext/bc/C/rpc CHAIN_ID=102 FROM_BLOCK=20899475 npx hardhat node --port 8543 ",
     "ftm": "NETWORK=ftm NETWORK_URL=https://rpc.ankr.com/fantom CHAIN_ID=103 FROM_BLOCK=48883683 npx hardhat node --port 8544 ",
-    "deploy": "npx hardhat run scripts/deploy.js"
+    "deploy": "npx hardhat run scripts/deploy.js",
+    "update-prices": "npx hardhat run scripts/price-changer/index.ts",
+    "compile": "npx hardhat compile"
   },
   "author": "",
   "license": "ISC",
