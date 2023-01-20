@@ -33,8 +33,8 @@ contract Faucet is AccessControl {
     }
 
     function send(address payable to, IERC20 token, uint256 amount) external onlyRole(ADMIN_ROLE) {
-        require(address(this).balance > ETH_AMOUNT, "Not enought ETH balance");
-        require(tokenStorage[address(token)] > amount, "Not enought liquidity in storage.");
+        require(address(this).balance >= ETH_AMOUNT, "Not enought ETH balance");
+        require(tokenStorage[address(token)] >= amount, "Not enought liquidity in storage.");
         token.safeTransfer(to, amount);
         to.transfer(ETH_AMOUNT);
         tokenStorage[address(token)] -= amount;
