@@ -21,8 +21,7 @@ interface IConfig {
         [key: string]: EntangleSynthFactory;
     }
 }
-  
- 
+
 export default async function deploy() {
     let SynthChef;
     const chainConfig: IConfig = { providers: {}, synthFactories: {} };
@@ -79,16 +78,16 @@ export default async function deploy() {
             break;
         }
     }
-    
+
 
     let balanceBeforeDeposit = await SynthChef?.getBalanceOnFarm(networkInfo.pid);
-     
-    await SynthChef?.deposit(0, networkInfo.stable, BigNumber.from(150000 * +networkInfo.decimals), 0);
 
-    let balanceOnFarm = Number(await SynthChef?.getBalanceOnFarm(networkInfo.pid)) - Number(balanceBeforeDeposit);
+    await SynthChef?.deposit(0, networkInfo.stable, BigNumber.from(150000).mul(BigNumber.from(10).pow(BigNumber.from(networkInfo.decimals))), 0);
+
+    let balanceOnFarm = BigNumber.from(await SynthChef?.getBalanceOnFarm(networkInfo.pid)).sub(BigNumber.from(balanceBeforeDeposit));
 
     for (const [key, value] of Object.entries(chainConfig.synthFactories)) {
-        await value.mint(networkInfo.chainId, networkInfo.chef, networkInfo.pid, BigNumber.from(balanceOnFarm / 5), networkInfo.dex, 0)
+        await value.mint(networkInfo.chainId, networkInfo.chef, networkInfo.pid, BigNumber.from(balanceOnFarm).div(BigNumber.from(5)), networkInfo.dex, 0)
         console.log(key);
         console.log(value);
     }
