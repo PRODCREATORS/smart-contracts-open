@@ -10,6 +10,7 @@ import { OptimismSynthChef__factory } from '../../typechain-types/factories/cont
 import { ArbitrumSynthChef__factory } from '../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol';
 import { AvaxSynthChef__factory } from '../../typechain-types/factories/contracts/synth-chefs/AvaxSynthChef.sol';
 import { EntangleSynthFactory } from "../../typechain-types/contracts/EntangleSynthFactory";
+import { EntangleSynth__factory } from "../../typechain-types/factories/contracts/EntangleSynth__factory";
 import config from "./config.json";
 
 
@@ -84,10 +85,14 @@ export default async function deploy() {
 
     await SynthChef?.deposit(0, networkInfo.stable, BigNumber.from(150000).mul(BigNumber.from(10).pow(BigNumber.from(networkInfo.decimals))), 0);
 
-    let balanceOnFarm = BigNumber.from(await SynthChef?.getBalanceOnFarm(networkInfo.pid)).sub(BigNumber.from(balanceBeforeDeposit));
+    let balanceAfterDeposit = await SynthChef?.getBalanceOnFarm(networkInfo.pid);
+
+    let balanceOnFarm = BigNumber.from(balanceAfterDeposit).sub(BigNumber.from(balanceBeforeDeposit));
+
+    console.log(balanceAfterDeposit, balanceOnFarm);
 
     for (const [key, value] of Object.entries(chainConfig.synthFactories)) {
-        await value.mint(networkInfo.chainId, networkInfo.chef, networkInfo.pid, BigNumber.from(balanceOnFarm).div(BigNumber.from(5)), networkInfo.dex, 0)
+        await value.mint(networkInfo.chainId, networkInfo.chef, networkInfo.pid, BigNumber.from(balanceOnFarm).div(BigNumber.from(5)), networkInfo.dex, 0);
         console.log(key);
         console.log(value);
     }
