@@ -96,7 +96,7 @@ export default async function deploy() {
     if(net != "tmat") {
         let addr = await SynthFactory.previewSynthAddress(
             synthInfo.tmat.chainId,
-            synthInfo.tmat.chef,
+            synthInfo.tmat.chef,     
             synthInfo.tmat.pid,
             synthInfo.tmat.stable
         );
