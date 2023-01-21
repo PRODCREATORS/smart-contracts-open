@@ -8,7 +8,7 @@ import arb_deploy from "../deploy/deployArbitrum";
 import op_deploy from "../deploy/deployOptimism";
 import bridge_deploy from "../deploy/deployTestBridge";
 import mat_deploy from "../deploy/deployPolygon";
-
+import config from "../deploy/addresses/tarb_addresses.json";
 export async function scaffold(net: string = hre.network.name) {
     switch (net) {
         case "tftm": {
@@ -108,7 +108,7 @@ export async function scaffold(net: string = hre.network.name) {
         case "tarb": {
             const WETH_ADDR = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1";
             const STABLE_ADDR = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8";
-            const BRIDGE_ADDR = await bridge_deploy();
+            const BRIDGE_ADDR = config.bridge;
             const UNISWAP_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
             const REWARD_TOKEN = ["0x6694340fc020c5E6B96567843da2df01b2CE1eb6"];
 
