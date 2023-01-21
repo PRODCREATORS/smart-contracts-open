@@ -34,7 +34,7 @@ export async function scaffold(net: string = hre.network.name) {
 
 
             const WETH_ADDR = "0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7";
-            const STABLE_ADDR = "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664";
+            const STABLE_ADDR = "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E";
             const BRIDGE_ADDR = await bridge_deploy();;
             const UNISWAP_ROUTER = "0x60aE616a2155Ee3d9A68541Ba4544862310933d4";
             const MASTER_CHEF = "0x188bED1968b795d5c9022F6a0bb5931Ac4c18F00";
