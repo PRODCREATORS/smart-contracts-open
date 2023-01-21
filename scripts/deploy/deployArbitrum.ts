@@ -197,7 +197,7 @@ export default async function deploy(
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
             faucet: config.faucet
-        })
+        }, null, 2)
     );
 
     // await fs.writeFile(
