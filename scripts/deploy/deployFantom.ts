@@ -11,6 +11,7 @@ import { FantomSynthChef__factory } from "../../typechain-types/factories/contra
 import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
 import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
+import config from "../deploy/addresses/tftm_addresses.json"
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
@@ -23,7 +24,7 @@ export default async function main(
     REWARD_TOKEN: string
 ) {
     const PID = 0;
-
+    BRIDGE_ADDR = config.bridge;
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -54,9 +55,6 @@ export default async function main(
     const PauserFactory = (await ethers.getContractFactory(
         "Pauser"
     )) as Pauser__factory;
-    const FaucetFactory = (await ethers.getContractFactory(
-        "Faucet"
-    )) as Faucet__factory;
     
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
@@ -118,8 +116,6 @@ export default async function main(
         ]
         );
         await pauser.deployed();
-    let faucet = await FaucetFactory.deploy()
-    await faucet.deployed();
 
     await (
         await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
@@ -210,7 +206,7 @@ export default async function main(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: faucet.address
+            faucet: config.faucet
         })
     );
     // await fs.writeFile(

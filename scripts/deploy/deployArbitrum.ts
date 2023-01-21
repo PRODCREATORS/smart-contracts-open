@@ -9,7 +9,6 @@ import { EntangleLending__factory } from "../../typechain-types/factories/contra
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
