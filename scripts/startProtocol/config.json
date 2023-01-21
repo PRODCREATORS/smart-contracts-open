@@ -1,0 +1,64 @@
+{
+    "networks": {
+        "tavax": {
+            "stable": "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664",
+            "decimals": "6",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "dex": "0x9BD6C251933a65De268C803fC55E98C5dd9A3CFD",
+            "chainId": "43114",
+            "pid": "51",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        },
+        "tftm": {
+            "stable": "0x04068DA6C83AFCFA0e13ba15A6696662335D5B75",
+            "decimals": "6",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "dex": "0x9BD6C251933a65De268C803fC55E98C5dd9A3CFD",
+            "chainId": "250",
+            "pid": "0",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        },
+        "tbsc": {
+            "stable": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+            "decimals": "18",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "dex": "0x9BD6C251933a65De268C803fC55E98C5dd9A3CFD",
+            "chainId": "56",
+            "pid": "7",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        },
+        "tarb": {
+            "stable": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+            "decimals": "6",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "dex": "0x9BD6C251933a65De268C803fC55E98C5dd9A3CFD",
+            "chainId": "42161",
+            "pid": "0",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        },
+        "top": {
+            "stable": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
+            "decimals": "6",
+            "factory": "0x05988fb4BBB979b9dA4bB43d51D93646078311DF",
+            "chef": "0x460DD5FDa9506a2Aae734758ef0ad4E13c77eE92",
+            "dex": "0x026a557ef9c75189508d61E3aDa117cBF7712d25",
+            "chainId": "10",
+            "pid": "0",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        },
+        "tmat": {
+            "stable": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+            "decimals": "6",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "dex": "0x9BD6C251933a65De268C803fC55E98C5dd9A3CFD",
+            "chainId": "137",
+            "pid": "0",
+            "provider": "https://nodes.test.entangle.fi/rpc/avalanche"
+        }
+    }
+}

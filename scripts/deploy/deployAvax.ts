@@ -9,6 +9,8 @@ import { EntangleRouter__factory } from "../../typechain-types/factories/contrac
 import { EntangleLending__factory } from "../../typechain-types/factories/contracts/EntangleLending__factory";
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
+import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
+import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
@@ -21,7 +23,7 @@ export default async function deploy(
     MASTER_CHEF: string,
     REWARD_TOKEN: string
 ) {
-    const PID = 8;
+    const PID = 51;
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
@@ -50,7 +52,12 @@ export default async function deploy(
     const IDEXFactory = (await ethers.getContractFactory(
         "EntangleDEX"
     )) as EntangleDEX__factory;
-
+    const PauserFactory = (await ethers.getContractFactory(
+        "Pauser"
+    )) as Pauser__factory;
+    const FaucetFactory = (await ethers.getContractFactory(
+        "Faucet"
+    )) as Faucet__factory;
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
         WETH_ADDR
@@ -96,11 +103,25 @@ export default async function deploy(
         2
     );
     await router.deployed();
+    
+    let pauser = await PauserFactory.deploy(
+        [   
+            chef.address, 
+            factory.address, 
+            DEXonDemand.address, 
+            pool.address, 
+            idex.address, 
+            router.address,
+            lending.address,
+
+        ]
+        );
+        await pauser.deployed();
+    let faucet = await FaucetFactory.deploy()
+    await faucet.deployed();
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
-    await (await chef.grantRole(chef.PAUSER_ROLE(), lending.address)).wait();
-    await (await idex.grantRole(idex.PAUSER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.REBALANCER(), router.address)).wait();
@@ -122,14 +143,19 @@ export default async function deploy(
             owner.getAddress()
         )
     ).wait();
-    await (
-        await DEXonDemand.grantRole(DEXonDemand.BUYER(), owner.getAddress())
-    ).wait();
     await (await chef.grantRole(chef.ADMIN_ROLE(), DEXonDemand.address)).wait();
     await (await chef.grantRole(chef.ADMIN_ROLE(), router.address)).wait();
     await (
         await factory.grantRole(factory.MINT_ROLE(), DEXonDemand.address)
     ).wait();
+
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+     await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait(); 
+     await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
+     await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
+     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
+     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait(); 
 
     let addr = await factory.previewSynthAddress(
         chainId,
@@ -167,34 +193,37 @@ export default async function deploy(
             pool: pool.address,
             lending: lending.address,
             opToken: STABLE_ADDR,
+            bridge: BRIDGE_ADDR,
+            pauser: pauser.address,
+            faucet: faucet.address
         })
     );
 
-    await fs.writeFile(
-        path.join(
-            "/",
-            "Users",
-            "dexat0r",
-            "github",
-            "entangle",
-            "backend-script",
-            "src",
-            "services",
-            "config",
-            `${hre.network.name}_addresses.json`
-        ),
-        JSON.stringify({
-            wrapper: wrapper.address,
-            chef: chef.address,
-            factory: factory.address,
-            DEXonDemand: DEXonDemand.address,
-            router: router.address,
-            idex: idex.address,
-            pool: pool.address,
-            lending: lending.address,
-            opToken: STABLE_ADDR,
-        })
-    );
+    // await fs.writeFile(
+    //     path.join(
+    //         "/",
+    //         "Users",
+    //         "dexat0r",
+    //         "github",
+    //         "entangle",
+    //         "backend-script",
+    //         "src",
+    //         "services",
+    //         "config",
+    //         `${hre.network.name}_addresses.json`
+    //     ),
+    //     JSON.stringify({
+    //         wrapper: wrapper.address,
+    //         chef: chef.address,
+    //         factory: factory.address,
+    //         DEXonDemand: DEXonDemand.address,
+    //         router: router.address,
+    //         idex: idex.address,
+    //         pool: pool.address,
+    //         lending: lending.address,
+    //         opToken: STABLE_ADDR,
+    //     })
+    // );
 
     return {
         wrapper: wrapper.address,

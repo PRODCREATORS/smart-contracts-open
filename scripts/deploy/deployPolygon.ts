@@ -1,7 +1,6 @@
-import hre from "hardhat";
 import { UniswapWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory";
 import { ethers } from "hardhat";
-import { BSCSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/BSCSynthChef.sol";
+import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
 import { EntangleSynthFactory__factory } from "../../typechain-types/factories/contracts/EntangleSynthFactory__factory";
 import { EntangleSynth__factory } from "../../typechain-types/factories/contracts/EntangleSynth__factory";
 import { EntangleDEXOnDemand__factory } from "../../typechain-types/factories/contracts/EntangleDEXOnDemand__factory";
@@ -11,19 +10,19 @@ import { EntanglePool__factory } from "../../typechain-types/factories/contracts
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
 import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
+import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
-import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
+import { PolygonSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/PolygonSynthChef.sol";
 
 export default async function deploy(
     WETH_ADDR: string,
     STABLE_ADDR: string,
     BRIDGE_ADDR: string,
     UNISWAP_ROUTER: string,
-    MASTER_CHEF: string,
-    REWARD_TOKEN: string,
-    PID: number
+    REWARD_TOKEN: string[]
 ) {
+    const PID = 0;
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
@@ -41,8 +40,8 @@ export default async function deploy(
         "UniswapWrapper"
     )) as UniswapWrapper__factory;
     const ChefFactory = (await ethers.getContractFactory(
-        "BSCSynthChef"
-    )) as BSCSynthChef__factory;
+        "PolygonSynthChef"
+    )) as PolygonSynthChef__factory;
     const SynthFactoryFactory = (await ethers.getContractFactory(
         "EntangleSynthFactory"
     )) as EntangleSynthFactory__factory;
@@ -58,21 +57,20 @@ export default async function deploy(
     const FaucetFactory = (await ethers.getContractFactory(
         "Faucet"
     )) as Faucet__factory;
-    
+
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
         WETH_ADDR
     )) as UniswapWrapper;
     await wrapper.deployed();
     let chef = await ChefFactory.deploy(
-        MASTER_CHEF, //chef
-        UNISWAP_ROUTER, //router
+        "0x45A01E4e04F14f7A4a6702c74187c5F6222033cd", //router
         wrapper.address, //dex interface
         STABLE_ADDR, //stable
-        [REWARD_TOKEN], //reward
+        REWARD_TOKEN, //reward
         "1", //fee
-        await owner.getAddress()
-    ); //fee collector
+        await owner.getAddress() //fee collector
+    );
     await chef.deployed();
     let factory = await SynthFactoryFactory.deploy();
     await factory.deployed();
@@ -122,15 +120,21 @@ export default async function deploy(
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
-    
+    await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.REBALANCER(), router.address)).wait();
     await (await idex.grantRole(idex.BUYER(), router.address)).wait();
+    await (await router.grantRole(router.ADMIN(), owner.getAddress())).wait();
     await (
         await lending.grantRole(lending.BORROWER_ROLE(), router.address)
     ).wait();
     await (await pool.grantRole(pool.DEPOSITER_ROLE(), router.address)).wait();
-    
+    await (
+        await pool.grantRole(pool.DEPOSITER_ROLE(), owner.getAddress())
+    ).wait();
+    await (
+        await factory.grantRole(factory.MINT_ROLE(), owner.getAddress())
+    ).wait();
     await (
         await DEXonDemand.grantRole(
             DEXonDemand.ADMIN_ROLE(),
@@ -142,22 +146,15 @@ export default async function deploy(
     await (
         await factory.grantRole(factory.MINT_ROLE(), DEXonDemand.address)
     ).wait();
-    await (
-        await pool.grantRole(pool.DEPOSITER_ROLE(), owner.getAddress())
-    ).wait();
-    await (
-        await factory.grantRole(factory.MINT_ROLE(), owner.getAddress())
-    ).wait();
-    await (await router.grantRole(router.ADMIN(), owner.getAddress())).wait();
-    await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
-
-     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+    
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
      await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
      await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait(); 
      await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
      await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
      await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
      await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait(); 
+
     let addr = await factory.previewSynthAddress(
         chainId,
         chef.address,
@@ -167,13 +164,19 @@ export default async function deploy(
     await (
         await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR)
     ).wait();
-
     let synth = EntangleSynth__factory.connect(addr, owner);
     await (await synth.setPrice("2000000000000000000")).wait();
 
     await (await idex.add(synth.address)).wait();
+    await (await lending.authorizeLender(idex.address)).wait();
 
-    await (await lending.authorizeLender(idex.address)).wait()
+    await chef.addPool(
+        "0x1205f31718499dBf1fCa446663B532Ef87481fe1",
+        "0x8731d54E9D02c286767d56ac03e8037C07e01e98",
+        "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+        0,
+        1
+    );
 
     console.log("Wrapper:", wrapper.address);
     console.log("Synth chef:", chef.address);
@@ -185,7 +188,7 @@ export default async function deploy(
     console.log("Lending:", lending.address);
 
     await fs.writeFile(
-        path.join(__dirname,'addresses', `${hre.network.name}_addresses.json`),
+        path.join(__dirname, "addresses", `${hre.network.name}_addresses.json`),
         JSON.stringify({
             wrapper: wrapper.address,
             chef: chef.address,
@@ -201,6 +204,7 @@ export default async function deploy(
             faucet: faucet.address
         })
     );
+
     // await fs.writeFile(
     //     path.join(
     //         "/",
@@ -223,6 +227,7 @@ export default async function deploy(
     //         idex: idex.address,
     //         pool: pool.address,
     //         lending: lending.address,
+    //         opToken: STABLE_ADDR,
     //     })
     // );
 
@@ -235,6 +240,5 @@ export default async function deploy(
         idex: idex.address,
         pool: pool.address,
         lending: lending.address,
-        bridge: BRIDGE_ADDR
     };
 }

@@ -31,7 +31,6 @@ contract EntangleDEXOnDemand is AccessControl {
         chef = _chef;
 
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
-        _setRoleAdmin(BUYER, ADMIN_ROLE);
         _setupRole(OWNER_ROLE, msg.sender);
     }
 

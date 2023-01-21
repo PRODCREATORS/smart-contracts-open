@@ -101,9 +101,9 @@ contract ArbitrumSynthChef is BaseSynthChef {
     }
 
     function _addLiquidity(
-        uint256 _amount,
+        uint256 _pid,
         address _tokenFrom,
-        uint256 _pid
+        uint256 _amount
     ) internal override returns (uint256 amountLPs) {
         (address token, uint256 amount) = _convertTokensToProvideLiquidity(
             _amount,
