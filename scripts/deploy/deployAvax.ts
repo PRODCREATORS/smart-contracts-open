@@ -23,7 +23,7 @@ export default async function deploy(
     MASTER_CHEF: string,
     REWARD_TOKEN: string
 ) {
-    const PID = 8;
+    const PID = 51;
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;

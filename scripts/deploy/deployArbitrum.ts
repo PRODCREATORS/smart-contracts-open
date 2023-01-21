@@ -14,6 +14,7 @@ import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
 import { ArbitrumSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol";
+import config from "../deploy/addresses/tarb_addresses.json"
 
 export default async function deploy(
     WETH_ADDR: string,
@@ -23,7 +24,7 @@ export default async function deploy(
     REWARD_TOKEN: string[]
 ) {
     const PID = 0;
-
+    BRIDGE_ADDR = config.bridge;
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -54,9 +55,6 @@ export default async function deploy(
     const PauserFactory = (await ethers.getContractFactory(
         "Pauser"
     )) as Pauser__factory;
-    const FaucetFactory = (await ethers.getContractFactory(
-        "Faucet"
-    )) as Faucet__factory;
 
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
@@ -115,8 +113,6 @@ export default async function deploy(
         ]
         );
         await pauser.deployed();
-    let faucet = await FaucetFactory.deploy()
-    await faucet.deployed();
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
@@ -201,7 +197,7 @@ export default async function deploy(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: faucet.address
+            faucet: config.faucet
         })
     );
 

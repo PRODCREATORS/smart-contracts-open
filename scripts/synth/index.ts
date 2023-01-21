@@ -7,8 +7,8 @@ import hre from "hardhat";
 export const synthInfo = {
         top: {
             "stable": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
-            "factory": "0x05988fb4BBB979b9dA4bB43d51D93646078311DF",
-            "chef": "0x460DD5FDa9506a2Aae734758ef0ad4E13c77eE92",
+            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
             "chainId": "10",
             "pid": "0"
         },
@@ -95,7 +95,7 @@ export default async function deploy() {
     if(net != "tmat") {
         let addr = await SynthFactory.previewSynthAddress(
             synthInfo.tmat.chainId,
-            synthInfo.tmat.chef,
+            synthInfo.tmat.chef,     
             synthInfo.tmat.pid,
             synthInfo.tmat.stable
         );
