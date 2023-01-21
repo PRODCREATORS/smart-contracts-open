@@ -14,7 +14,7 @@ import { Faucet__factory } from "../../typechain-types/factories/contracts/Fauce
 import fs from "fs/promises";
 import path from "path";
 import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
-
+import config from "../deploy/addresses/tbsc_addresses.json"
 export default async function deploy(
     WETH_ADDR: string,
     STABLE_ADDR: string,
@@ -27,7 +27,7 @@ export default async function deploy(
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
-
+    BRIDGE_ADDR = config.bridge;
     const LendingFactory = (await ethers.getContractFactory(
         "EntangleLending"
     )) as EntangleLending__factory;
@@ -55,9 +55,6 @@ export default async function deploy(
     const PauserFactory = (await ethers.getContractFactory(
         "Pauser"
     )) as Pauser__factory;
-    const FaucetFactory = (await ethers.getContractFactory(
-        "Faucet"
-    )) as Faucet__factory;
     
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
@@ -117,8 +114,6 @@ export default async function deploy(
         ]
         );
         await pauser.deployed();
-    let faucet = await FaucetFactory.deploy()
-    await faucet.deployed();
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
@@ -198,7 +193,7 @@ export default async function deploy(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: faucet.address
+            faucet: config.faucet
         })
     );
     // await fs.writeFile(

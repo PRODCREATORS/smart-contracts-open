@@ -14,7 +14,7 @@ import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
 import { ETHSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ETHSynthChef.sol";
-
+//import config from "../deploy/addresses/teth_addresses.json"
 export default async function deploy(
     WETH_ADDR: string,
     STABLE_ADDR: string,

@@ -10,7 +10,7 @@ import { EntangleLending__factory } from "../../typechain-types/factories/contra
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
+import config from "../deploy/addresses/tavax_addresses.json"
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
@@ -24,7 +24,7 @@ export default async function deploy(
     REWARD_TOKEN: string
 ) {
     const PID = 51;
-
+    BRIDGE_ADDR = config.bridge;
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -55,9 +55,6 @@ export default async function deploy(
     const PauserFactory = (await ethers.getContractFactory(
         "Pauser"
     )) as Pauser__factory;
-    const FaucetFactory = (await ethers.getContractFactory(
-        "Faucet"
-    )) as Faucet__factory;
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
         WETH_ADDR
@@ -117,8 +114,6 @@ export default async function deploy(
         ]
         );
         await pauser.deployed();
-    let faucet = await FaucetFactory.deploy()
-    await faucet.deployed();
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
@@ -195,7 +190,7 @@ export default async function deploy(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: faucet.address
+            faucet: config.faucet
         })
     );
 
