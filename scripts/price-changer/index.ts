@@ -31,7 +31,9 @@ function price(tlv: BigNumberish, opTokenDecimals: number, synthAmt: BigNumberis
   let price = tlvDecimalAdjusted.div(synthAmt);
   
   //  price = price * (10 ** (DECIMALS - opTokenDecimals))
-      price = price.mul(decimal(DECIMALS - opTokenDecimals));
+  //    price = price.mul(decimal(DECIMALS - opTokenDecimals));
+
+  //console.log(decimal(DECIMALS - opTokenDecimals));
     
   return price;
 }
@@ -48,7 +50,7 @@ class SynthMeta {
   }
 
   public addSupply(bn: BigNumber) {
-    this.circulation.add(bn);
+    this.circulation = this.circulation.add(bn);
   }
   public setDecimals(x: number) {
     this.opTokenDecimals = x;
@@ -106,9 +108,10 @@ async function main() {
       // of this synth across all chains.
       // Also save the synth itself for future reference
       const synthAddress = await factory.synths(info.chainId, info.chef, info.pid);
+      console.log(k, network, synthAddress);
       const synth = await ethers.getContractAt('EntangleSynth', synthAddress, wallet);
       const totalSupply = await synth.totalSupply();
-
+      console.log(totalSupply);
       synthMeta[synthId].addSupply(totalSupply);
       synthMeta[synthId].pushSynth(synth);
     }
@@ -119,7 +122,7 @@ async function main() {
   for(const [k,v] of Object.entries(synthMeta)) {
     for(const synth of v.synths) {
       const newPrice = v.getPrice();
-      console.log(k, '|', synth.address, '->', newPrice);
+      console.log(k, await synth.signer.getChainId(), '|', synth.address, '->', newPrice, ethers.utils.formatEther(newPrice));
       await synth.setPrice(newPrice);
     }
   }

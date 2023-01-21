@@ -36,7 +36,7 @@ export const synthInfo = {
         tarb: {
             "stable": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
             "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
-            "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
+            "chef": "0xb9E836d1AFC7641AB21c725f5400E710C62BeCF8",
             "chainId": "42161",
             "pid": "0"
         },
