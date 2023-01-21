@@ -193,6 +193,7 @@ abstract contract BaseSynthChef is PausableAccessControl, Lender {
         address to,
         uint256 amount
     ) internal view returns (uint256) {
+        if (from == to) return amount;
         return DEXWrapper.previewConvert(from, to, amount);
     }
 
