@@ -37,8 +37,8 @@ export async function scaffold(net: string = hre.network.name) {
             const STABLE_ADDR = "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E";
             const BRIDGE_ADDR = await bridge_deploy();;
             const UNISWAP_ROUTER = "0x60aE616a2155Ee3d9A68541Ba4544862310933d4";
-            const MASTER_CHEF = "0x188bED1968b795d5c9022F6a0bb5931Ac4c18F00";
-            const REWARD_TOKEN = "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664";
+            const MASTER_CHEF = "0x4483f0b6e2F5486D06958C20f8C39A7aBe87bf8F";
+            const REWARD_TOKEN = "0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd";
 
             await avax_deploy(
                 WETH_ADDR,
