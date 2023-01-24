@@ -1,0 +1,14 @@
+stages:
+  - trigger-rebuild-centralized-script
+
+trigger-rebuild-centralized-script:
+  stage: trigger-rebuild-centralized-script
+  script:
+    - >
+      if git diff --quiet HEAD~1 -- scripts/deploy/addresses; then
+         echo "No need to rebuild centralized script"
+      else 
+         echo "There are some changes, triggering rebuild"
+         curl -X POST --fail -F token=$TRIGGER_TOKEN-F ref=testnet https://gitlab.ent-dx.com/api/v4/projects/17/trigger/pipeline
+      fi
+
