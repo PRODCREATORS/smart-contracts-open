@@ -29,33 +29,33 @@ const DECIMALS = 18;
 const decimal = (x: BigNumberish) => BigNumber.from(10).pow(x);
 const extend = (n: BigNumber, from: number, to: number) => n.mul(decimal(to - from));
 
-function price(tlv: BigNumberish, decimalsIn: number, synthAmt: BigNumberish, decimalsOut: number) {
-  //console.log(`tvl=${tlv} decimals=${decimalsIn}`);
+function price(tlv: BigNumberish, tvlDecimals: number, synthAmt: BigNumberish, decimalsOut: number) {
+  console.log(`tvl=${tlv} synthAmt=${synthAmt}`);
   //  tlvDecimalAdjusted = tlvInOpTokenWEI * (10 ** (DECIMALS -opTokenDecimals))
-  let tlvDecimalAdjusted = BigNumber.from(tlv).mul(decimal(DECIMALS - decimalsIn));
+  let tlvDecimalAdjusted = BigNumber.from(tlv).mul(decimal(DECIMALS - tvlDecimals));
   //console.log(`adj=${tlvDecimalAdjusted.toBigInt()} decimals=${DECIMALS}`);
 
   //  price = tlvDecimalAdjusted / synthAmt
-  let price = tlvDecimalAdjusted.div(synthAmt);
+  let price = tlvDecimalAdjusted.mul(decimal(DECIMALS)).div(synthAmt);
   //console.log(`ratio=${price.toBigInt()} synthAmt=${synthAmt}`);
   //  price = price * (10 ** opTokenDecimals)
   //price = price.mul(decimal(Math.abs(decimalsOut)));
-
+/*
   if(price.eq(1)) {
     //console.log('price is one');
     price = price.mul(decimal(decimalsOut));
     return price;
   }
-  if(decimalsOut > decimalsIn) {
-    price = price.mul(decimal(decimalsOut - decimalsIn));
+  if(decimalsOut > tvlDecimals) {
+    price = price.mul(decimal(decimalsOut - tvlDecimals));
   }
-  if(decimalsOut < decimalsIn) {
+  if(decimalsOut < tvlDecimals) {
     price = price.mul(decimal(decimalsOut));
   }
-
+*/
   //console.log(`price=${price.toBigInt()} decimals=${decimalsOut}`);
   //console.log(decimal(DECIMALS - opTokenDecimals));
-    
+
   return price;
 }
 
@@ -95,9 +95,9 @@ class SynthMeta {
     // Set price to uint256 max so synth would be practically unobtainable
     // if we are short on circulation or backing asset
     if (this.synthGroup.circulation.eq(0) || this.synthGroup.tlv.eq(0)) {
-      return ethers.constants.MaxUint256; 
+      return ethers.constants.MaxUint256;
     }
-    return price(this.synthGroup.tlv, this.synthGroup.tlvDecimals, this.synthGroup.lpSupply, this.opDecimals);
+    return price(this.synthGroup.tlv, this.synthGroup.tlvDecimals, this.synthGroup.circulation, this.opDecimals);
   }
 
   public async fmtChainInfo() {
@@ -125,15 +125,15 @@ const getSynthInfo = () => {
 }
 
 const _synthInfo = _.merge(synthInfo, getSynthInfo());
-console.log(JSON.stringify(_synthInfo, null, 2));
+
 async function main() {
   const networks = Config.networks!;
   // Assume all test nets prefixed with the `t`
   const testnets = Object.fromEntries(Object.entries(networks).filter(([k,v]) => k.startsWith('t') && k !== 'teth')) as TestnetConfigT
 
   console.log(testnets);
-  const synthMeta = new DefaultDict(SynthGroup) as Record<string, SynthGroup>;
   while(1) {
+    const synthMeta = new DefaultDict(SynthGroup) as Record<string, SynthGroup>;
     // Iterate over all networks 
     for(const [k,v] of Object.entries(testnets)) {
       const config = _synthInfo[(k as SynthInfoKeys)];
