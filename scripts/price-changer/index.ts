@@ -6,6 +6,8 @@ import path from 'path';
 import Config from '../../hardhat.config';
 import { EntangleSynth } from '../../typechain-types';
 import { synthInfo } from '../synth';
+import { promisify } from 'util';
+const sleep = promisify(setTimeout);
 
 type SynthInfoKeys = keyof typeof synthInfo;
 type TestnetConfigT = Record<string, { url: string, accounts: { mnemonic: string }}>;
@@ -123,6 +125,7 @@ const getSynthInfo = () => {
 }
 
 const _synthInfo = _.merge(synthInfo, getSynthInfo());
+console.log(JSON.stringify(_synthInfo, null, 2));
 async function main() {
   const networks = Config.networks!;
   // Assume all test nets prefixed with the `t`
@@ -130,64 +133,68 @@ async function main() {
 
   console.log(testnets);
   const synthMeta = new DefaultDict(SynthGroup) as Record<string, SynthGroup>;
-  // Iterate over all networks 
-  for(const [k,v] of Object.entries(testnets)) {
-    const config = _synthInfo[(k as SynthInfoKeys)];
-    // Setup rpcs and wallets from mnemonics
-    const provider = new ethers.providers.JsonRpcProvider(v.url);
-    const mnemo = ethers.Wallet.fromMnemonic(v.accounts.mnemonic);
-    const wallet = new ethers.Wallet(mnemo.privateKey, provider);
+  while(1) {
+    // Iterate over all networks 
+    for(const [k,v] of Object.entries(testnets)) {
+      const config = _synthInfo[(k as SynthInfoKeys)];
+      // Setup rpcs and wallets from mnemonics
+      const provider = new ethers.providers.JsonRpcProvider(v.url);
+      const mnemo = ethers.Wallet.fromMnemonic(v.accounts.mnemonic);
+      const wallet = new ethers.Wallet(mnemo.privateKey, provider);
 
-    const factory = await ethers.getContractAt('EntangleSynthFactory', config.factory, wallet); 
-    console.log('---- ', config.chainId, factory.address);
+      const factory = await ethers.getContractAt('EntangleSynthFactory', config.factory, wallet); 
+      console.log('---- ', config.chainId, factory.address);
 
-    const opToken = await ethers.getContractAt('ERC20', config.stable, wallet);
-    const decimals = await opToken.decimals(); 
-    // Iterate over all onchain synths
-    for (const [network, info] of Object.entries(_synthInfo)) {
-      const synthId = `${info.chainId}_${info.chef}_${info.pid}`;
-      console.log(`on network ${k}, from network ${network}`, synthId);
-      // If we hit the network of origin (where SynthChef is deployed) 
-      // just collect the tlv and some info about opToken
-      if (k === network) {
-        console.log('--------- SKIP ---------');
-        const chef = await ethers.getContractAt('BaseSynthChef', config.chef, wallet);
-        const tlv = await chef.getBalanceOnFarm(config.pid);
-        const lpAmt = await chef.getLPAmountOnFarm(config.pid);
-        const opToken = await ethers.getContractAt('ERC20', config.stable, wallet);
-        const tlvDecimals = await opToken.decimals(); 
-        console.log(`lpAmount=${lpAmt} ${tlvDecimals}`);
-        synthMeta[synthId].setTlv(tlv, tlvDecimals);
-        if (['tmat', 'tarb'].includes(network)) {
-          synthMeta[synthId].setLpSupply(extend(lpAmt, 6, 18));
-        } else {
-          synthMeta[synthId].setLpSupply(lpAmt);
+      const opToken = await ethers.getContractAt('ERC20', config.stable, wallet);
+      const decimals = await opToken.decimals(); 
+      // Iterate over all onchain synths
+      for (const [network, info] of Object.entries(_synthInfo)) {
+        const synthId = `${info.chainId}_${info.chef}_${info.pid}`;
+        console.log(`on network ${k}, from network ${network}`, synthId);
+        // If we hit the network of origin (where SynthChef is deployed) 
+        // just collect the tlv and some info about opToken
+        if (k === network) {
+          console.log('--------- SKIP ---------');
+          const chef = await ethers.getContractAt('BaseSynthChef', config.chef, wallet);
+          const tlv = await chef.getBalanceOnFarm(config.pid);
+          const lpAmt = await chef.getLPAmountOnFarm(config.pid);
+          const opToken = await ethers.getContractAt('ERC20', config.stable, wallet);
+          const tlvDecimals = await opToken.decimals(); 
+          console.log(`lpAmount=${lpAmt} ${tlvDecimals}`);
+          synthMeta[synthId].setTlv(tlv, tlvDecimals);
+          if (['tmat', 'tarb'].includes(network)) {
+            synthMeta[synthId].setLpSupply(extend(lpAmt, 6, 18));
+          } else {
+            synthMeta[synthId].setLpSupply(lpAmt);
+          }
+          continue;
         }
-        continue;
+        // Get the amount of synth minted on this chain 
+        // and accumulate it to get the total circulation 
+        // of this synth across all chains.
+        // Also save the synth itself for future reference
+        const synthAddress = await factory.synths(info.chainId, info.chef, info.pid);
+        const synth = await ethers.getContractAt('EntangleSynth', synthAddress, wallet);
+        const totalSupply = await synth.totalSupply();
+        synthMeta[synthId].addSupply(totalSupply);
+        synthMeta[synthId].addSynth(synth, network, decimals);
       }
-      // Get the amount of synth minted on this chain 
-      // and accumulate it to get the total circulation 
-      // of this synth across all chains.
-      // Also save the synth itself for future reference
-      const synthAddress = await factory.synths(info.chainId, info.chef, info.pid);
-      const synth = await ethers.getContractAt('EntangleSynth', synthAddress, wallet);
-      const totalSupply = await synth.totalSupply();
-      synthMeta[synthId].addSupply(totalSupply);
-      synthMeta[synthId].addSynth(synth, network, decimals);
     }
-  }
-  console.log(synthMeta);
-  // Update the prices after we collected all the info from all chains
-  for(const [k,v] of Object.entries(synthMeta)) {
-    for(const meta of v.synths) {
-      const newPrice = meta.getPrice();
-      console.log(await meta.fmtChainInfo(),
-        formatSynthHashKey(k), '|',
-        meta.synth.address, '->', newPrice,
-        ethers.utils.formatUnits(newPrice, meta.opDecimals), meta.opDecimals
-      );
-      await meta.synth.setPrice(newPrice);
+    console.log(synthMeta);
+    // Update the prices after we collected all the info from all chains
+    for(const [k,v] of Object.entries(synthMeta)) {
+      for(const meta of v.synths) {
+        const newPrice = meta.getPrice();
+        console.log(await meta.fmtChainInfo(),
+          formatSynthHashKey(k), '|',
+          meta.synth.address, '->', newPrice,
+          ethers.utils.formatUnits(newPrice, meta.opDecimals), meta.opDecimals
+        );
+        await meta.synth.setPrice(newPrice);
+      }
     }
+
+    await sleep(20000);
   }
 }
 

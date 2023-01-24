@@ -45,7 +45,7 @@ export const synthInfo = {
             "factory": "0x7A15F915De12797Ac4fc4A633367C32b523e45Ae",
             "chef": "0x28497d56dF4D84ff8480402fDB3E0283E000CcE3",
             "chainId": "43114",
-            "pid": "51"
+            "pid": "8"
         },
 
 }
