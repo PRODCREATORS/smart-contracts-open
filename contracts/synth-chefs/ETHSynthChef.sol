@@ -10,6 +10,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./BaseSynthChef.sol";
 
 interface Curve {
+    function balances(uint256 i) external view returns(uint256);
+
     function calc_token_amount(uint256[2] memory, bool is_deposit)
         external
         view
@@ -17,20 +19,13 @@ interface Curve {
 
     function add_liquidity(
         uint256[2] memory,
-        uint256 _min_mint_amount,
-        bool is_deposit
+        uint256 _min_mint_amount
     ) external returns (uint256);
 
     function remove_liquidity(
         uint256 amount,
-        uint256[2] memory _min_amounts,
-        bool _use_underlying
+        uint256[2] memory _min_amounts
     ) external returns (uint256[2] memory);
-
-    function calc_withdraw_one_coin(uint256 _token_amount, int128 i)
-        external
-        view
-        returns (uint256);
 }
 
 interface Convex {
@@ -51,6 +46,8 @@ interface ConvexReward {
     function getReward() external returns (bool);
 
     function balanceOf(address account) external view returns (uint256);
+
+    function totalSupply() external view returns (uint256);
 }
 
 contract ETHSynthChef is BaseSynthChef {
@@ -166,8 +163,7 @@ contract ETHSynthChef is BaseSynthChef {
 
         amountLPs = pool.curvePool.add_liquidity(
             [amount0, amount1],
-            0,
-            true
+            0
         );
     }
 
@@ -186,8 +182,7 @@ contract ETHSynthChef is BaseSynthChef {
 
         uint256[2] memory amounts = pool.curvePool.remove_liquidity(
             _amount,
-            [uint256(0), uint256(0)],
-            true
+            [uint256(0), uint256(0)]
         );
 
         tokenAmounts[0] = TokenAmount({token: pool.token0, amount: amounts[0]});
@@ -203,6 +198,7 @@ contract ETHSynthChef is BaseSynthChef {
         Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
         uint256 amountLP = getLPAmountOnFarm(_pid);
+        /*
         uint256 amount0 = pool.curvePool.calc_withdraw_one_coin(
             amountLP,
             int128(0)
@@ -211,6 +207,10 @@ contract ETHSynthChef is BaseSynthChef {
             amountLP,
             int128(1)
         );
+        */
+        uint256 convexTotalSupply = pool.convexreward.totalSupply();
+        uint256 amount0 = pool.curvePool.balances(0) * amountLP / convexTotalSupply;
+        uint256 amount1 = pool.curvePool.balances(1) * amountLP / convexTotalSupply;
         tokenAmounts[0] = TokenAmount({token: pool.token0, amount: amount0});
         tokenAmounts[1] = TokenAmount({token: pool.token1, amount: amount1});
     }
