@@ -139,7 +139,7 @@ async function main() {
       const config = _synthInfo[(k as SynthInfoKeys)];
       // Setup rpcs and wallets from mnemonics
       const provider = new ethers.providers.JsonRpcProvider(v.url);
-      const mnemo = ethers.Wallet.fromMnemonic(v.accounts.mnemonic);
+      const mnemo = ethers.Wallet.fromMnemonic(v.accounts.mnemonic, `m/44'/60'/0'/0/1`);
       const wallet = new ethers.Wallet(mnemo.privateKey, provider);
 
       const factory = await ethers.getContractAt('EntangleSynthFactory', config.factory, wallet); 
