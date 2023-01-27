@@ -10,7 +10,7 @@ import { EntangleLending__factory } from "../../typechain-types/factories/contra
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import config from "../deploy/addresses/tavax_addresses.json"
+
 import hre from "hardhat";
 import fs from "fs/promises";
 import path from "path";
@@ -21,10 +21,11 @@ export default async function deploy(
     BRIDGE_ADDR: string,
     UNISWAP_ROUTER: string,
     MASTER_CHEF: string,
-    REWARD_TOKEN: string
+    REWARD_TOKEN: string,
+    FAUCET_ADDR: string
 ) {
     const PID = 8;
-    BRIDGE_ADDR = config.bridge;
+
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -190,7 +191,7 @@ export default async function deploy(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: config.faucet
+            faucet: FAUCET_ADDR
         })
     );
 

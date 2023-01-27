@@ -13,16 +13,16 @@ import { OptimismSynthChef__factory } from "../../typechain-types/factories/cont
 import { VelodromeWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/VelodromeWrapper.sol";
 import { VelodromeWrapper } from "../../typechain-types/contracts/dex-wrappers/VelodromeWrapper.sol/VelodromeWrapper";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
-import config from "../deploy/addresses/top_addresses.json"
+
 export default async function main(
     STABLE_ADDR: string,
     BRIDGE_ADDR: string,
     UNISWAP_ROUTER: string,
-    REWARD_TOKEN: string[]
+    REWARD_TOKEN: string[],
+    FAUCET_ADDR: string
 ) {
     const PID = 0;
-    BRIDGE_ADDR = config.bridge;
+
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
@@ -202,7 +202,7 @@ export default async function main(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: config.faucet
+            faucet: FAUCET_ADDR
         })
     );
 

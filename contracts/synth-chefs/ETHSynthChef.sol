@@ -9,10 +9,30 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./BaseSynthChef.sol";
 
-interface Curve {
-    function balances(uint256 i) external view returns(uint256);
+interface CErc20 {
 
-    function calc_token_amount(uint256[2] memory, bool is_deposit)
+    function mint(uint256 mintAmount) external returns(uint256);
+
+    function redeem(uint256 redeemAmount) external returns(uint256);
+
+    function exchangeRateStored() external view returns(uint256);
+
+    function balanceOf(address account) external view returns(uint256);
+}
+
+interface CurveCompoundPool {
+
+    /*
+    uint256[2] public balances;
+    address[2] public coins;
+    address[2] public underlying_coins;
+    */
+
+    function balances(uint128 i) external view returns(uint256);
+    function coins(uint128 i) external view returns(address);
+    function underlying_coins(uint128 i) external view returns(address);
+
+    function calc_token_amount(uint256[2] memory amounts, bool is_deposit)
         external
         view
         returns (uint256);
@@ -20,12 +40,12 @@ interface Curve {
     function add_liquidity(
         uint256[2] memory,
         uint256 _min_mint_amount
-    ) external returns (uint256);
+    ) external;
 
     function remove_liquidity(
         uint256 amount,
         uint256[2] memory _min_amounts
-    ) external returns (uint256[2] memory);
+    ) external;
 }
 
 interface Convex {
@@ -46,11 +66,46 @@ interface ConvexReward {
     function getReward() external returns (bool);
 
     function balanceOf(address account) external view returns (uint256);
-
-    function totalSupply() external view returns (uint256);
 }
 
-contract ETHSynthChef is BaseSynthChef {
+contract ExpMath {
+
+    uint256 constant expScale = 1e18;
+
+    struct Exp {
+        uint256 mantissa;
+    }
+
+    /**
+     * @dev Truncates the given exp to a whole number value.
+     *      For example, truncate(Exp{mantissa: 15 * expScale}) = 15
+     */
+    function truncate(Exp memory exp) pure internal returns (uint256) {
+        // Note: We are not using careful math here as we're performing a division that cannot fail
+        return exp.mantissa / expScale;
+    }
+
+    /**
+     * @dev Multiply an Exp by a scalar, returning a new Exp.
+     */
+    function mulScalar(Exp memory a, uint256 scalar) pure internal returns (Exp memory) {
+        uint256 scaledMantissa = a.mantissa * scalar;
+
+        return Exp({mantissa: scaledMantissa});
+    }
+    /**
+     * @dev Multiply an Exp by a scalar, then truncate to return an unsigned integer.
+     */
+    function mulScalarTruncate(Exp memory a, uint256 scalar) pure internal returns (uint256) {
+        Exp memory product = mulScalar(a, scalar);
+
+        return truncate(product);
+    }
+}
+
+// this contract not for mainnet deploying
+// realy needs to be optimized
+contract ETHSynthChef is BaseSynthChef, ExpMath {
     using SafeERC20 for IERC20;
 
     Convex public convex;
@@ -59,9 +114,9 @@ contract ETHSynthChef is BaseSynthChef {
     struct Pool {
         address lp;
         uint256 convexID;
-        address token0;
-        address token1;
-        Curve curvePool;
+        address underlyingToken0;
+        address underlyingToken1;
+        CurveCompoundPool curvePool;
         ConvexReward convexreward;
     }
 
@@ -118,10 +173,24 @@ contract ETHSynthChef is BaseSynthChef {
         )
     {
         Pool memory pool = poolsArray[_pid];
-        token0 = address(pool.token0);
-        token1 = address(pool.token1);
-        amount0 = _convertTokens(_tokenFrom, token0, _amount / 2);
-        amount1 = _convertTokens(_tokenFrom, token1, _amount / 2);
+        // convert stable to underlying tokens
+        uint256 underlyingAmount0 = _convertTokens(_tokenFrom, pool.underlyingToken0, _amount / 2);
+        uint256 underlyingAmount1 = _convertTokens(_tokenFrom, pool.underlyingToken1, _amount / 2);
+        // mint cTokens
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+
+        uint256 cToken0BalanceBefore = cToken0.balanceOf(address(this));
+        uint256 cToken1BalanceBefore = cToken1.balanceOf(address(this));
+
+        require(cToken0.mint(underlyingAmount0) == 0, "Error when minting cToken0");
+        require(cToken1.mint(underlyingAmount1) == 0, "Error when minting cToken1");
+
+        amount0 = cToken0.balanceOf(address(this)) - cToken0BalanceBefore;
+        amount1 = cToken1.balanceOf(address(this)) - cToken1BalanceBefore;
+
+        token0 = address(cToken0);
+        token1 = address(cToken1);
     }
 
     function _addLiquidity(
@@ -131,40 +200,44 @@ contract ETHSynthChef is BaseSynthChef {
     ) internal override returns (uint256 amountLPs) {
         Pool memory pool = poolsArray[_pid];
         (
-            address token0,
-            address token1,
+            address cToken0,
+            address cToken1,
             uint256 amount0,
             uint256 amount1
         ) = _convertTokensToProvideLiquidity(_pid, _tokenFrom, _amount);
 
         if (
-            IERC20(token0).allowance(
+            IERC20(cToken0).allowance(
                 address(this),
                 address(pool.curvePool)
-            ) == 0
+            ) < amount0
         ) {
-            IERC20(token0).safeIncreaseAllowance(
+            IERC20(cToken0).safeIncreaseAllowance(
                 address(pool.curvePool),
                 type(uint256).max
             );
         }
 
         if (
-            IERC20(token1).allowance(
+            IERC20(cToken1).allowance(
                 address(this),
                 address(pool.curvePool)
-            ) == 0
+            ) < amount1
         ) {
-            IERC20(token1).safeIncreaseAllowance(
+            IERC20(cToken1).safeIncreaseAllowance(
                 address(pool.curvePool),
                 type(uint256).max
             );
         }
 
-        amountLPs = pool.curvePool.add_liquidity(
+        uint256 balanceBefore = IERC20(pool.lp).balanceOf(address(this));
+
+        pool.curvePool.add_liquidity(
             [amount0, amount1],
             0
         );
+
+        amountLPs = balanceBefore - IERC20(pool.lp).balanceOf(address(this));
     }
 
     function _harvest(uint256 _pid) internal override {
@@ -180,13 +253,38 @@ contract ETHSynthChef is BaseSynthChef {
         Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
 
-        uint256[2] memory amounts = pool.curvePool.remove_liquidity(
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+
+        uint256 cToken0AmountBefore = cToken0.balanceOf(address(this));
+        uint256 cToken1AmountBefore = cToken1.balanceOf(address(this));
+
+        // remove cTokens from pool
+        pool.curvePool.remove_liquidity(
             _amount,
             [uint256(0), uint256(0)]
         );
 
-        tokenAmounts[0] = TokenAmount({token: pool.token0, amount: amounts[0]});
-        tokenAmounts[1] = TokenAmount({token: pool.token1, amount: amounts[1]});
+        uint256 cToken0Amount = cToken0AmountBefore - cToken0.balanceOf(address(this));
+        uint256 cToken1Amount = cToken1AmountBefore - cToken1.balanceOf(address(this));
+
+        // redeem cTokens to underlying tokens
+        uint256 uToken0AmountBefore = IERC20(pool.underlyingToken0).balanceOf(address(this));
+        uint256 uToken1AmountBefore = IERC20(pool.underlyingToken1).balanceOf(address(this));
+
+        require(cToken0.redeem(cToken0Amount) == 0, "Error when redeeming uToken0");
+        require(cToken1.redeem(cToken1Amount) == 0, "Error when redeeming uToken1");
+
+        tokenAmounts[0] = TokenAmount(
+            {
+                token: pool.underlyingToken0,
+                amount: IERC20(pool.underlyingToken0).balanceOf(address(this)) - uToken0AmountBefore
+            });
+        tokenAmounts[1] = TokenAmount(
+            {
+                token: pool.underlyingToken1,
+                amount: IERC20(pool.underlyingToken1).balanceOf(address(this)) - uToken1AmountBefore
+            });
     }
 
     function _getTokensInLP(uint256 _pid)
@@ -198,21 +296,31 @@ contract ETHSynthChef is BaseSynthChef {
         Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
         uint256 amountLP = getLPAmountOnFarm(_pid);
-        /*
-        uint256 amount0 = pool.curvePool.calc_withdraw_one_coin(
-            amountLP,
-            int128(0)
-        );
-        uint256 amount1 = pool.curvePool.calc_withdraw_one_coin(
-            amountLP,
-            int128(1)
-        );
-        */
-        uint256 convexTotalSupply = pool.convexreward.totalSupply();
-        uint256 amount0 = pool.curvePool.balances(0) * amountLP / convexTotalSupply;
-        uint256 amount1 = pool.curvePool.balances(1) * amountLP / convexTotalSupply;
-        tokenAmounts[0] = TokenAmount({token: pool.token0, amount: amount0});
-        tokenAmounts[1] = TokenAmount({token: pool.token1, amount: amount1});
+
+        // preview convert lps to cTokens
+        uint256 lpTotalSupply = IERC20(pool.lp).totalSupply();
+        uint256 cToken0Amount = pool.curvePool.balances(0) * amountLP / lpTotalSupply;
+        uint256 cToken1Amount = pool.curvePool.balances(1) * amountLP / lpTotalSupply;
+
+        // preview convert cTokens to underlying tokens
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+        uint256 cToken0ExchangeRateMantissa = cToken0.exchangeRateStored();
+        uint256 cToken1ExchangeRateMantissa = cToken1.exchangeRateStored();
+        uint256 uToken0Amount = mulScalarTruncate(Exp({mantissa: cToken0ExchangeRateMantissa}), cToken0Amount);
+        uint256 uToken1Amount = mulScalarTruncate(Exp({mantissa: cToken1ExchangeRateMantissa}), cToken1Amount);
+
+        tokenAmounts[0] = TokenAmount(
+            {
+                token: pool.underlyingToken0,
+                amount: uToken0Amount
+            });
+        tokenAmounts[1] = TokenAmount(
+            {
+                token: pool.underlyingToken1,
+                amount: uToken1Amount
+            });
+
     }
 
     function getLPAmountOnFarm(uint256 _pid)
@@ -228,13 +336,15 @@ contract ETHSynthChef is BaseSynthChef {
     function addPool(
         address _lp,
         uint256 _convexID,
-        address _token0,
-        address _token1,
-        Curve _curvePool,
+        address _underlyingToken0,
+        address _underlyingToken1,
+        CurveCompoundPool _curvePool,
         ConvexReward _convexreward
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
+        require(_curvePool.underlying_coins(0) == _underlyingToken0, "Token0 is not eq to pool's underlying token");
+        require(_curvePool.underlying_coins(1) == _underlyingToken1, "Token1 is not eq to pool's underlying token");
         poolsArray.push(
-            Pool(_lp, _convexID, _token0, _token1, _curvePool, _convexreward)
+            Pool(_lp, _convexID, _underlyingToken0, _underlyingToken1, _curvePool, _convexreward)
         );
     }
 }

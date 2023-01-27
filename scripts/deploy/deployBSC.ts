@@ -10,11 +10,11 @@ import { EntangleLending__factory } from "../../typechain-types/factories/contra
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import { Faucet__factory } from "../../typechain-types/factories/contracts/Faucet__factory";
+
 import fs from "fs/promises";
 import path from "path";
 import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
-import config from "../deploy/addresses/tbsc_addresses.json"
+
 export default async function deploy(
     WETH_ADDR: string,
     STABLE_ADDR: string,
@@ -22,12 +22,13 @@ export default async function deploy(
     UNISWAP_ROUTER: string,
     MASTER_CHEF: string,
     REWARD_TOKEN: string,
-    PID: number
+    PID: number,
+    FAUCET_ADDR: string
 ) {
 
     let owner = (await ethers.getSigners())[0];
     let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
-    BRIDGE_ADDR = config.bridge;
+
     const LendingFactory = (await ethers.getContractFactory(
         "EntangleLending"
     )) as EntangleLending__factory;
@@ -55,7 +56,7 @@ export default async function deploy(
     const PauserFactory = (await ethers.getContractFactory(
         "Pauser"
     )) as Pauser__factory;
-    
+
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
         WETH_ADDR
@@ -193,7 +194,7 @@ export default async function deploy(
             opToken: STABLE_ADDR,
             bridge: BRIDGE_ADDR,
             pauser: pauser.address,
-            faucet: config.faucet
+            faucet: FAUCET_ADDR
         })
     );
     // await fs.writeFile(
