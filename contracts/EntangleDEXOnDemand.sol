@@ -65,14 +65,11 @@ contract EntangleDEXOnDemand is AccessControl {
 
     /**
      * @notice Trade function to sell synth token.
-     * @param _amount The amount of the source token being traded.
+     * @param _amount The amount of the synth token being traded.
      */
     function sell(uint256 _pid, uint256 _amount) external {
         EntangleSynth synth = factory.synths(block.chainid, address(chef), _pid);
-        IERC20 opToken = IERC20(address(synth.opToken()));
-        if (synth.allowance(address(this), address(factory)) < _amount) {
-            opToken.safeIncreaseAllowance(address(factory), type(uint256).max);
-        }
+        uint256 opAmount = synth.convertSynthAmountToOpAmount(_amount);
         factory.burn(
             block.chainid,
             address(chef),
@@ -81,6 +78,6 @@ contract EntangleDEXOnDemand is AccessControl {
             msg.sender,
             0
         );
-        chef.withdraw(_pid, address(opToken), _amount, msg.sender, 0);
+        chef.withdraw(_pid, address(synth.opToken()), opAmount, msg.sender, 0);
     }
 }

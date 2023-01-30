@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./BaseSynthChef.sol";
 
+
 interface CErc20 {
 
     function mint(uint256 mintAmount) external returns(uint256);
@@ -20,19 +21,21 @@ interface CErc20 {
     function balanceOf(address account) external view returns(uint256);
 }
 
-interface CurveCompoundPool {
+abstract contract CurveCompoundPool {
 
-    /*
+/*
     uint256[2] public balances;
     address[2] public coins;
     address[2] public underlying_coins;
-    */
+*/
 
-    function balances(uint128 i) external view returns(uint256);
-    function coins(uint128 i) external view returns(address);
-    function underlying_coins(uint128 i) external view returns(address);
+
+    function balances(uint128 i) public virtual view returns(uint256);
+    function coins(uint128 i) public virtual view returns(address);
+    function underlying_coins(uint128 i) public virtual view returns(address);
 
     function calc_token_amount(uint256[2] memory amounts, bool is_deposit)
+        virtual
         external
         view
         returns (uint256);
@@ -40,12 +43,12 @@ interface CurveCompoundPool {
     function add_liquidity(
         uint256[2] memory,
         uint256 _min_mint_amount
-    ) external;
+    ) external virtual;
 
     function remove_liquidity(
         uint256 amount,
         uint256[2] memory _min_amounts
-    ) external;
+    ) external virtual;
 }
 
 interface Convex {
@@ -177,8 +180,8 @@ contract ETHSynthChef is BaseSynthChef, ExpMath {
         uint256 underlyingAmount0 = _convertTokens(_tokenFrom, pool.underlyingToken0, _amount / 2);
         uint256 underlyingAmount1 = _convertTokens(_tokenFrom, pool.underlyingToken1, _amount / 2);
         // mint cTokens
-        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
-        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(uint128(0)));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(uint128(1)));
 
         uint256 cToken0BalanceBefore = cToken0.balanceOf(address(this));
         uint256 cToken1BalanceBefore = cToken1.balanceOf(address(this));
@@ -253,8 +256,8 @@ contract ETHSynthChef is BaseSynthChef, ExpMath {
         Pool memory pool = poolsArray[_pid];
         tokenAmounts = new TokenAmount[](2);
 
-        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
-        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(uint128(0)));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(uint128(1)));
 
         uint256 cToken0AmountBefore = cToken0.balanceOf(address(this));
         uint256 cToken1AmountBefore = cToken1.balanceOf(address(this));
@@ -299,12 +302,12 @@ contract ETHSynthChef is BaseSynthChef, ExpMath {
 
         // preview convert lps to cTokens
         uint256 lpTotalSupply = IERC20(pool.lp).totalSupply();
-        uint256 cToken0Amount = pool.curvePool.balances(0) * amountLP / lpTotalSupply;
-        uint256 cToken1Amount = pool.curvePool.balances(1) * amountLP / lpTotalSupply;
+        uint256 cToken0Amount = pool.curvePool.balances(uint128(0)) * amountLP / lpTotalSupply;
+        uint256 cToken1Amount = pool.curvePool.balances(uint128(1)) * amountLP / lpTotalSupply;
 
         // preview convert cTokens to underlying tokens
-        CErc20 cToken0 = CErc20(pool.curvePool.coins(0));
-        CErc20 cToken1 = CErc20(pool.curvePool.coins(1));
+        CErc20 cToken0 = CErc20(pool.curvePool.coins(uint128(0)));
+        CErc20 cToken1 = CErc20(pool.curvePool.coins(uint128(1)));
         uint256 cToken0ExchangeRateMantissa = cToken0.exchangeRateStored();
         uint256 cToken1ExchangeRateMantissa = cToken1.exchangeRateStored();
         uint256 uToken0Amount = mulScalarTruncate(Exp({mantissa: cToken0ExchangeRateMantissa}), cToken0Amount);
@@ -333,16 +336,20 @@ contract ETHSynthChef is BaseSynthChef, ExpMath {
         amount = pool.convexreward.balanceOf(address(this));
     }
 
+    function testGetUnderlyingToken(CurveCompoundPool curvePool, uint128 i) public view returns(address token) {
+        token = curvePool.underlying_coins(uint128(i));
+    }
+
     function addPool(
         address _lp,
-        uint256 _convexID,
+        uint256 _convexID, // PID
         address _underlyingToken0,
         address _underlyingToken1,
         CurveCompoundPool _curvePool,
         ConvexReward _convexreward
     ) external onlyRole(ADMIN_ROLE) whenNotPaused {
-        require(_curvePool.underlying_coins(0) == _underlyingToken0, "Token0 is not eq to pool's underlying token");
-        require(_curvePool.underlying_coins(1) == _underlyingToken1, "Token1 is not eq to pool's underlying token");
+        require(_curvePool.underlying_coins(uint128(0)) == _underlyingToken0, "Token0 is not eq to pool's underlying token");
+        require(_curvePool.underlying_coins(uint128(1)) == _underlyingToken1, "Token1 is not eq to pool's underlying token");
         poolsArray.push(
             Pool(_lp, _convexID, _underlyingToken0, _underlyingToken1, _curvePool, _convexreward)
         );
