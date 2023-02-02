@@ -1,4 +1,5 @@
 {
+    "priceChangerAddress": "0xd4e7d68d0e9ede259fc89b76c4a8bb6d5d1e66af",
     "networks": {
         "teth": {
             "chainId": "1",
