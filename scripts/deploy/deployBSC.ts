@@ -116,7 +116,7 @@ export default async function deploy(
 
     await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
-    
+
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.REBALANCER(), router.address)).wait();
     await (await idex.grantRole(idex.BUYER(), router.address)).wait();
@@ -124,7 +124,7 @@ export default async function deploy(
         await lending.grantRole(lending.BORROWER_ROLE(), router.address)
     ).wait();
     await (await pool.grantRole(pool.DEPOSITER_ROLE(), router.address)).wait();
-    
+
     await (
         await DEXonDemand.grantRole(
             DEXonDemand.ADMIN_ROLE(),
@@ -145,27 +145,13 @@ export default async function deploy(
     await (await router.grantRole(router.ADMIN(), owner.getAddress())).wait();
     await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
 
-     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
-     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
-     await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait(); 
-     await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
-     await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
-     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
-     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait(); 
-    let addr = await factory.previewSynthAddress(
-        chainId,
-        chef.address,
-        PID,
-        STABLE_ADDR
-    );
-    await (
-        await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR)
-    ).wait();
-
-    let synth = EntangleSynth__factory.connect(addr, owner);
-    await (await synth.setPrice("2000000000000000000")).wait();
-
-    await (await idex.add(synth.address)).wait();
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+    await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait();
+    await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
+    await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
+    await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
+    await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait();
 
     await (await lending.authorizeLender(idex.address)).wait()
 

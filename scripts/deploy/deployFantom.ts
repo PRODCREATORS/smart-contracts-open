@@ -149,12 +149,12 @@ export default async function main(
     ).wait();
 
     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
-     await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
-     await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait(); 
-     await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
-     await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
-     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
-     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait(); 
+    await (await idex.grantRole(idex.PAUSER_ROLE(), pauser.address)).wait();
+    await (await router.grantRole(router.PAUSER_ROLE(), pauser.address)).wait();
+    await (await pool.grantRole(pool.PAUSER_ROLE(), pauser.address)).wait();
+    await (await factory.grantRole(factory.PAUSER_ROLE(), pauser.address)).wait();
+    await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
+    await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait();
 
     await (
         await chef.addPool(
@@ -166,19 +166,6 @@ export default async function main(
         )
     ).wait();
 
-    let addr = await factory.previewSynthAddress(
-        chainId,
-        chef.address,
-        PID,
-        STABLE_ADDR
-    );
-    await (
-        await factory.createSynth(chainId, chef.address, PID, STABLE_ADDR)
-    ).wait();
-    let synth = EntangleSynth__factory.connect(addr, owner);
-    await (await synth.setPrice(BigInt("2000000000000000000"))).wait();
-
-    await (await idex.add(synth.address)).wait();
     await (await lending.authorizeLender(idex.address)).wait()
 
     console.log("Wrapper:", wrapper.address);
