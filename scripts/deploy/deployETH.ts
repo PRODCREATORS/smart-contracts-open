@@ -11,8 +11,6 @@ import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/Uni
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
 
 import hre from "hardhat";
-import fs from "fs/promises";
-import path from "path";
 import { ETHSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ETHSynthChef.sol";
 //import config from "../deploy/addresses/teth_addresses.json"
 export default async function deploy(
@@ -63,14 +61,12 @@ export default async function deploy(
         "Pauser"
     )) as Pauser__factory;
 
-    console.log("Deploy UniswapWrapper")
     let wrapper = (await UniswapWrapperFactory.deploy(
         UNISWAP_ROUTER,
         WETH_ADDR
     )) as UniswapWrapper;
     await wrapper.deployed();
-    console.log("UniswapWrapper", wrapper.address);
-    console.log("Deploy Chef")
+
     let chef = await ChefFactory.deploy(
         MASTER_CHEF, //chef
         wrapper.address, //dex interface
@@ -80,36 +76,25 @@ export default async function deploy(
         await owner.getAddress()
     ); //fee collector
     await chef.deployed();
-    console.log("Chef", chef.address)
-    console.log("Deploy SynthFactory")
+
     let factory = await SynthFactoryFactory.deploy();
     await factory.deployed();
-    console.log("SynthFactory", factory.address)
 
-    console.log("Deploy DEXonDemand")
     let DEXonDemand = await DEXonDemandFactory.deploy(
         factory.address,
         chef.address
     );
     await DEXonDemand.deployed();
-    console.log("DEXonDemand", DEXonDemand.address)
 
-    console.log("Deploy lending")
     let lending = await LendingFactory.deploy();
     await lending.deployed();
-    console.log("lending", lending.address)
 
-    console.log("Deploy pool")
     let pool = await PoolFactory.deploy();
     await pool.deployed();
-    console.log("pool", pool.address)
 
-    console.log("Deploy idex")
     let idex = await IDEXFactory.deploy(owner.getAddress());
     await idex.deployed();
-    console.log("idex", idex.address)
 
-    console.log("Deploy router")
     let router = await RouterFactory.deploy(
         pool.address,
         idex.address,
@@ -122,9 +107,7 @@ export default async function deploy(
         2
     );
     await router.deployed();
-    console.log("router", router.address)
 
-    console.log("Deploy pauser")
     let pauser = await PauserFactory.deploy(
         [
             chef.address,
@@ -137,9 +120,6 @@ export default async function deploy(
 
         ]);
     await pauser.deployed();
-    console.log("pauser", pauser.address)
-
-    console.log("Grant Roles")
     await (
         await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
     ).wait();
@@ -181,17 +161,6 @@ export default async function deploy(
     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait();
 
-    /*
-    function addPool(
-        address _lp,
-        uint256 _convexID,
-        address _underlyingToken0,
-        address _underlyingToken1,
-        CurveCompoundPool _curvePool,
-        ConvexReward _convexreward
-    )
-    */
-    console.log("Add pool to chef");
     await chef.addPool(
         LP_TOKEN,
         PID,
@@ -207,17 +176,13 @@ export default async function deploy(
         0,
         STABLE_ADDR
     );
-    console.log("Create synth");
     await (
         await factory.createSynth(chainId, chef.address, 0, STABLE_ADDR)
     ).wait();
     let synth = EntangleSynth__factory.connect(addr, owner);
-    console.log("Synth set price");
     await (await synth.setPrice(BigInt("2000000000000000000"))).wait();
 
-    console.log("Idex add synth");
     await (await idex.add(synth.address)).wait();
-    console.log("authorizeLender");
     await (await lending.authorizeLender(idex.address)).wait()
 
     console.log("Wrapper:", wrapper.address);
@@ -229,28 +194,18 @@ export default async function deploy(
     console.log("Pool:", pool.address);
     console.log("Lending:", lending.address);
 
-    await fs.writeFile(
-        path.join(__dirname, "addresses", `${hre.network.name}_addresses.json`),
-        JSON.stringify({
-            wrapper: wrapper.address,
-            chef: chef.address,
-            factory: factory.address,
-            DEXonDemand: DEXonDemand.address,
-            router: router.address,
-            idex: idex.address,
-            pool: pool.address,
-            lending: lending.address,
-            opToken: STABLE_ADDR,
-            bridge: BRIDGE_ADDR,
-            pauser: pauser.address,
-            faucet: FAUCET_ADDR
-        })
-    );
-
     return {
         wrapper: wrapper.address,
         chef: chef.address,
+        factory: factory.address,
+        DEXonDemand: DEXonDemand.address,
         router: router.address,
+        idex: idex.address,
         pool: pool.address,
+        lending: lending.address,
+        opToken: STABLE_ADDR,
+        bridge: BRIDGE_ADDR,
+        pauser: pauser.address,
+        faucet: FAUCET_ADDR
     };
 }

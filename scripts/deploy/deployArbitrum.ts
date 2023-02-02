@@ -10,8 +10,7 @@ import { EntanglePool__factory } from "../../typechain-types/factories/contracts
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
 import hre from "hardhat";
-import fs from "fs/promises";
-import path from "path";
+
 import { ArbitrumSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol";
 
 export default async function deploy(
@@ -182,50 +181,6 @@ export default async function deploy(
     console.log("Pool:", pool.address);
     console.log("Lending:", lending.address);
 
-    await fs.writeFile(
-        path.join(__dirname, "addresses", `${hre.network.name}_addresses.json`),
-        JSON.stringify({
-            wrapper: wrapper.address,
-            chef: chef.address,
-            factory: factory.address,
-            DEXonDemand: DEXonDemand.address,
-            router: router.address,
-            idex: idex.address,
-            pool: pool.address,
-            lending: lending.address,
-            opToken: STABLE_ADDR,
-            bridge: BRIDGE_ADDR,
-            pauser: pauser.address,
-            faucet: FAUCET_ADDR
-        }, null, 2)
-    );
-
-    // await fs.writeFile(
-    //     path.join(
-    //         "/",
-    //         "Users",
-    //         "dexat0r",
-    //         "github",
-    //         "entangle",
-    //         "backend-script",
-    //         "src",
-    //         "services",
-    //         "config",
-    //         `${hre.network.name}_addresses.json`
-    //     ),
-    //     JSON.stringify({
-    //         wrapper: wrapper.address,
-    //         chef: chef.address,
-    //         factory: factory.address,
-    //         DEXonDemand: DEXonDemand.address,
-    //         router: router.address,
-    //         idex: idex.address,
-    //         pool: pool.address,
-    //         lending: lending.address,
-    //         opToken: STABLE_ADDR,
-    //     })
-    // );
-
     return {
         wrapper: wrapper.address,
         chef: chef.address,
@@ -235,5 +190,9 @@ export default async function deploy(
         idex: idex.address,
         pool: pool.address,
         lending: lending.address,
+        opToken: STABLE_ADDR,
+        bridge: BRIDGE_ADDR,
+        pauser: pauser.address,
+        faucet: FAUCET_ADDR
     };
 }

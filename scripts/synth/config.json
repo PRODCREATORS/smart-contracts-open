@@ -3,7 +3,7 @@
         "teth": {
             "chainId": "1",
             "pid": "0",
-            "provider": "http://127.0.0.1:8590"
+            "provider": "https://nodes.test.entangle.fi/rpc/eth"
         },
         "tavax": {
             "chainId": "43114",

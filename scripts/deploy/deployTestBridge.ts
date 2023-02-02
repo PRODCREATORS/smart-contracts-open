@@ -2,19 +2,18 @@ import hre from "hardhat";
 import { ethers } from "hardhat";
 import { EntangleTestBridge__factory } from "../../typechain-types/factories/contracts/bridge/EntangleTestBridge__factory";
 import path from "path";
-import fs from "fs/promises";
+import fs from "fs";
 
 
 export default async function deploy() {
+    const config = JSON.parse(fs.readFileSync(path.join(__dirname, "bridge_config", "bridge_config.json")).toString());
+
     const BridgeFactory = (await ethers.getContractFactory(
          "EntangleTestBridge"
     )) as EntangleTestBridge__factory;
     let net = hre.network.name;
     let bridge = await BridgeFactory.deploy();
     await bridge.deployed();
-
-    const config = JSON.parse((await fs.readFile(path.join(__dirname, "bridge_config", "bridge_config.json"))).toString());
-
     await (await bridge.grantRole(bridge.ADMIN(), config.bridgeKeeperAddress)).wait();
 
     for (const token in config["tokens"]) {

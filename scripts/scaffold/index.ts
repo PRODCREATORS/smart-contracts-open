@@ -9,23 +9,33 @@ import op_deploy from "../deploy/deployOptimism";
 import bridge_deploy from "../deploy/deployTestBridge";
 import faucet_deploy from "../deploy/deployFaucet";
 import mat_deploy from "../deploy/deployPolygon";
-import { readFileSync } from "fs";
+import fs from "fs";
+import path from "path";
+
 export async function scaffold(net: string = hre.network.name) {
-    const addresses = JSON.parse(readFileSync(`scripts/deploy/addresses/${net}_addresses.json`).toString());
+
+    let addresses;
+    if (fs.existsSync(`./scripts/deploy/addresses/${net}_addresses.json`)) {
+        addresses = JSON.parse(fs.readFileSync(`./scripts/deploy/addresses/${net}_addresses.json`).toString());
+    }
+    else {
+        addresses = {};
+    }
     let BRIDGE_ADDR;
-    if (addresses.bridge === "") {
+    if (addresses.bridge === "" || addresses.bridge === undefined) {
         BRIDGE_ADDR = await bridge_deploy();
     }
     else {
         BRIDGE_ADDR = addresses.bridge;
     }
     let FAUCET_ADDR;
-    if (addresses.faucet === "") {
+    if (addresses.faucet === "" || addresses.faucet === undefined) {
         FAUCET_ADDR = await faucet_deploy();
     }
     else {
         FAUCET_ADDR = addresses.faucet;
     }
+
     switch (net) {
         case "tftm": {
             // const BRIDGE_ADDR = "0xB003e75f7E0B5365e814302192E99b4EE08c0DEd";
@@ -36,7 +46,7 @@ export async function scaffold(net: string = hre.network.name) {
             const MASTER_CHEF = "0x09855B4ef0b9df961ED097EF50172be3e6F13665";
             const REWARD_TOKEN = "0x5Cc61A78F164885776AA610fb0FE1257df78E59B";
 
-            await ftm_deploy(
+            addresses = await ftm_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 BRIDGE_ADDR,
@@ -57,7 +67,7 @@ export async function scaffold(net: string = hre.network.name) {
             const MASTER_CHEF = "0x4483f0b6e2F5486D06958C20f8C39A7aBe87bf8F";
             const REWARD_TOKEN = "0x6e84a6216eA6dACC71eE8E6b0a5B7322EEbC0fDd";
 
-            await avax_deploy(
+            addresses = await avax_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 BRIDGE_ADDR,
@@ -79,7 +89,7 @@ export async function scaffold(net: string = hre.network.name) {
             const REWARD_TOKEN = "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82";
             const PID = 7;
 
-            await bsc_deploy(
+            addresses = await bsc_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 BRIDGE_ADDR,
@@ -100,7 +110,7 @@ export async function scaffold(net: string = hre.network.name) {
             const MASTER_CHEF = "0xF403C135812408BFbE8713b5A23a04b3D48AAE31";
             const REWARD_TOKEN = ["0xD533a949740bb3306d119CC777fa900bA034cd52"];
 
-            await eth_deploy(
+            addresses = await eth_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 UNISWAP_ROUTER,
@@ -118,7 +128,7 @@ export async function scaffold(net: string = hre.network.name) {
             const UNISWAP_ROUTER = "0xa132DAB612dB5cB9fC9Ac426A0Cc215A3423F9c9";
             const REWARD_TOKEN = ["0x3c8B650257cFb5f272f799F5e2b4e65093a11a05"];
 
-            await op_deploy(
+            addresses = await op_deploy(
                 STABLE_ADDR,
                 BRIDGE_ADDR,
                 UNISWAP_ROUTER,
@@ -135,7 +145,7 @@ export async function scaffold(net: string = hre.network.name) {
             const UNISWAP_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506";
             const REWARD_TOKEN = ["0x6694340fc020c5E6B96567843da2df01b2CE1eb6"];
 
-            await arb_deploy(
+            addresses = await arb_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 BRIDGE_ADDR,
@@ -154,7 +164,7 @@ export async function scaffold(net: string = hre.network.name) {
             const UNISWAP_ROUTER = "0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506"
             const REWARD_TOKEN = ["0x2F6F07CDcf3588944Bf4C42aC74ff24bF56e7590"]
 
-            await mat_deploy(
+            addresses = await mat_deploy(
                 WETH_ADDR,
                 STABLE_ADDR,
                 BRIDGE_ADDR,
@@ -165,6 +175,10 @@ export async function scaffold(net: string = hre.network.name) {
             break;
         }
     }
+    fs.writeFileSync(
+        path.join(`./scripts/deploy/addresses/${net}_addresses.json`),
+        JSON.stringify(addresses, null, 2)
+    );
 }
 
 scaffold().catch(console.log);

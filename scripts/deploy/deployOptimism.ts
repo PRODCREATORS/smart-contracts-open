@@ -7,8 +7,7 @@ import { EntangleLending__factory } from "../../typechain-types/factories/contra
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import hre from "hardhat";
-import fs from "fs/promises";
-import path from "path";
+
 import { OptimismSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/OptimismSynthChef.sol/OptimismSynthChef__factory";
 import { VelodromeWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/VelodromeWrapper.sol";
 import { VelodromeWrapper } from "../../typechain-types/contracts/dex-wrappers/VelodromeWrapper.sol/VelodromeWrapper";
@@ -188,24 +187,6 @@ export default async function main(
     console.log("Pool:", pool.address);
     console.log("Lending:", lending.address);
 
-    await fs.writeFile(
-        path.join(__dirname, "addresses", `${hre.network.name}_addresses.json`),
-        JSON.stringify({
-            wrapper: wrapper.address,
-            chef: chef.address,
-            factory: factory.address,
-            DEXonDemand: DEXonDemand.address,
-            router: router.address,
-            idex: idex.address,
-            pool: pool.address,
-            lending: lending.address,
-            opToken: STABLE_ADDR,
-            bridge: BRIDGE_ADDR,
-            pauser: pauser.address,
-            faucet: FAUCET_ADDR
-        })
-    );
-
     return {
         wrapper: wrapper.address,
         chef: chef.address,
@@ -215,5 +196,9 @@ export default async function main(
         idex: idex.address,
         pool: pool.address,
         lending: lending.address,
+        opToken: STABLE_ADDR,
+        bridge: BRIDGE_ADDR,
+        pauser: pauser.address,
+        faucet: FAUCET_ADDR
     };
 }

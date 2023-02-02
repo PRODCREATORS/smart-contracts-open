@@ -20,10 +20,10 @@ contract Faucet is AccessControl {
     event Send(address to, address token, uint256 amount);
 
     constructor() {
-        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
-        _setupRole(OWNER_ROLE, _msgSender());
-        _setupRole(ADMIN_ROLE, _msgSender());
+        _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
         _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+        _grantRole(OWNER_ROLE, _msgSender());
+        _grantRole(ADMIN_ROLE, _msgSender());
     }
 
     function deposit(IERC20 token, uint256 amount) payable external onlyRole(ADMIN_ROLE) {
