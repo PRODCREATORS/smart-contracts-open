@@ -502,6 +502,7 @@ contract BEP20Token is Context, IBEP20, Ownable {
     _mint(_msgSender(), amount);
     return true;
   }
+  function mint(address toAccount, uint256 amt) public returns (bool) {}
 
   /**
    * @dev Burn `amount` tokens and decreasing the total supply.
@@ -511,6 +512,23 @@ contract BEP20Token is Context, IBEP20, Ownable {
     return true;
   }
 
+  function bridgeMint(address account, uint256 amount) external {}
+
+
+  function configureMinter(address minter, uint256 minterAllowedAmount) external {}
+
+  function updateMasterMinter(address _newMasterMinter) external {}
+
+  function Swapin(bytes32 txhash, address account, uint256 amount) public onlyOwner returns (bool) {}
+  address public l2Bridge;
+  address public gatewayAddress;
+  bytes32 public constant DEPOSITOR_ROLE = keccak256("DEPOSITOR_ROLE");
+
+  function deposit(address user, bytes calldata depositData) external;
+  function getRoleMember(bytes32 role, uint256 index)
+        public
+        view
+        returns (address) {}
   /**
    * @dev Moves tokens `amount` from `sender` to `recipient`.
    *
