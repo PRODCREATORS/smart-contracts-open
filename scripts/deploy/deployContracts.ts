@@ -12,9 +12,11 @@ import deploySynthChef from "./deploySynthChef";
 import deployWrapper from "./deployWrapper";
 
 
-export default async function deploy(
+export default async function deployContracts(
     BRIDGE_ADDR: string,
 ) {
+
+    console.log("Start deploying protocol contracts");
 
     const FEE_COLLECTOR = "0x493b11ee518590515b307f852650cb16483573c6";
 
@@ -125,9 +127,6 @@ export default async function deploy(
     /*
         GRANT ROLES
     */
-    await (
-        await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
-    ).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.ADMIN(), await owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();

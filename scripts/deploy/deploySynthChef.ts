@@ -1,5 +1,4 @@
 import hre, { ethers } from "hardhat";
-import { Signer } from "ethers";
 
 import { ETHSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ETHSynthChef.sol";
 import { ArbitrumSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol";
@@ -17,6 +16,10 @@ import path from "path";
 export default async function deploySynthChef(wrapperAddress: string, feeCollector: string) {
 
     const network = hre.network.name;
+    let owner = (await ethers.getSigners())[0];
+
+    console.log("Deploy SynthChef for %s", network);
+
     const chefs_config = JSON.parse(
         fs.readFileSync(
             path.join(
@@ -43,6 +46,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
                 feeCollector
             );
             await chef.deployed();
+
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
 
             for (let pool of chefs_config[network].pools) {
                 await (
@@ -75,6 +82,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
             );
             await chef.deployed();
 
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
+
             for (let pool of chefs_config[network].pools) {
                 // there is not needs add pool to chef
                 pids.push(pool.pid)
@@ -99,6 +110,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
             );
             await chef.deployed();
 
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
+
             for (let pool of chefs_config[network].pools) {
                 // there is not needs add pool to chef
                 pids.push(pool.pid)
@@ -120,6 +135,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
                 feeCollector
             );
             await chef.deployed();
+
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
 
             for (let pool of chefs_config[network].pools) {
                 await (
@@ -152,6 +171,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
             );
             await chef.deployed();
 
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
+
             for (let pool of chefs_config[network].pools) {
                 await (
                     await chef.addPool(
@@ -181,6 +204,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
                 feeCollector
             );
             await chef.deployed();
+
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
 
             for (let pool of chefs_config[network].pools) {
                 await (
@@ -212,6 +239,10 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
             );
             await chef.deployed();
 
+            await (
+                await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+            ).wait();
+
             for (let pool of chefs_config[network].pools) {
                 await (
                     await chef.addPool(
@@ -234,6 +265,8 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
     }
 
     assert(chefAddress !== "", "SynthChef was not deployed");
+
+    console.log("Chef address: %s", chefAddress);
 
     return {stableAddress, chefAddress, pids};
 }

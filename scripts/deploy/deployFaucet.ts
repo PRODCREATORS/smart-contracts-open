@@ -4,7 +4,8 @@ import { Faucet__factory } from "../../typechain-types/factories/contracts/Fauce
 import path from "path";
 import fs from "fs";
 
-export default async function deploy() {
+export default async function deployFaucet() {
+    console.log("Deploy Faucet");
     const config = JSON.parse(fs.readFileSync(path.join(__dirname, "faucet_config", "faucet_config.json")).toString());
 
     const FaucetFactory = (await ethers.getContractFactory(
@@ -16,7 +17,7 @@ export default async function deploy() {
 
     await (await faucet.grantRole(faucet.ADMIN_ROLE(), config.faucetAdminAddress)).wait();
 
+    console.log("faucet address: %s", faucet.address);
+
     return faucet.address
 }
-
-deploy().catch(console.log);

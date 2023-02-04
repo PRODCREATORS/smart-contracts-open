@@ -10,8 +10,8 @@ import op_deploy from "../deploy/deployOptimism";
 import mat_deploy from "../deploy/deployPolygon";
 */
 import deployContracts from "../deploy/deployContracts";
-import bridge_deploy from "../deploy/deployTestBridge";
-import faucet_deploy from "../deploy/deployFaucet";
+import deployTestBridge from "../deploy/deployTestBridge";
+import deployFaucet from "../deploy/deployFaucet";
 
 import fs from "fs";
 import path from "path";
@@ -27,14 +27,14 @@ export async function scaffold(net: string = hre.network.name) {
     }
     let BRIDGE_ADDR;
     if (addresses.bridge === "" || addresses.bridge === undefined) {
-        BRIDGE_ADDR = await bridge_deploy();
+        BRIDGE_ADDR = await deployTestBridge();
     }
     else {
         BRIDGE_ADDR = addresses.bridge;
     }
     let FAUCET_ADDR;
     if (addresses.faucet === "" || addresses.faucet === undefined) {
-        FAUCET_ADDR = await faucet_deploy();
+        FAUCET_ADDR = await deployFaucet();
     }
     else {
         FAUCET_ADDR = addresses.faucet;

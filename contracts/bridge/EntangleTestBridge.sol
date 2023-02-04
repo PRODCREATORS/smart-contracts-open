@@ -10,8 +10,8 @@ contract EntangleTestBridge is AccessControl {
 
     mapping(address => uint256) public tokenStorage;
     mapping(uint => address) public idsToToken;
-    bytes32 public constant OWNER = keccak256("OWNER");
-    bytes32 public constant ADMIN = keccak256("ADMIN");
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER");
 
     event Deposit(address token, uint256 amount);
     event Withdraw(address token, uint256 amount);
@@ -41,21 +41,22 @@ contract EntangleTestBridge is AccessControl {
     );
 
     constructor() public {
-        _setRoleAdmin(ADMIN, OWNER);
-        _setupRole(OWNER, msg.sender);
+        _setRoleAdmin(ADMIN_ROLE, OWNER_ROLE);
+        _grantRole(OWNER_ROLE, msg.sender);
+        _grantRole(ADMIN_ROLE, msg.sender);
     }
 
-    function addTokenId(uint id, address token) external onlyRole(ADMIN) {
+    function addTokenId(uint id, address token) external onlyRole(ADMIN_ROLE) {
         idsToToken[id] = address(token);
     }
 
-    function deposit(IERC20 token, uint256 amount) external onlyRole(ADMIN) {
+    function deposit(IERC20 token, uint256 amount) external onlyRole(ADMIN_ROLE) {
         token.safeTransferFrom(msg.sender, address(this), amount);
         tokenStorage[address(token)] += amount;
         emit Deposit(address(token), amount);
     }
 
-    function withdraw(IERC20 token, uint256 amount) external onlyRole(ADMIN) {
+    function withdraw(IERC20 token, uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(tokenStorage[address(token)] >= amount, "Not enought liquidity");
         token.safeTransferFrom(address(this), msg.sender, amount);
         tokenStorage[address(token)] -= amount;
@@ -76,7 +77,7 @@ contract EntangleTestBridge is AccessControl {
         uint8 swapTokenIndexTo,
         uint256 swapMinDy,
         uint256 swapDeadline
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) {
         token.safeTransferFrom(msg.sender, address(this), dx);
         tokenStorage[address(token)] += dx;
 
@@ -99,7 +100,7 @@ contract EntangleTestBridge is AccessControl {
         uint8 tokenIndexTo,
         uint256 minDy,
         uint256 deadline
-    ) external onlyRole(ADMIN) {
+    ) external onlyRole(ADMIN_ROLE) {
         require(idsToToken[tokenIndexTo] != address(0), "tokenIndexTo wasn't found");
         IERC20 tokenTo = IERC20(idsToToken[tokenIndexTo]);
         require(tokenStorage[address(tokenTo)] >= amount, "Not enought liquidity");

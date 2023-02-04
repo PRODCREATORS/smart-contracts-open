@@ -9,6 +9,7 @@ import fs from "fs";
 import path from "path";
 
 export default async function deployWrapper(): Promise<string> {
+    console.log("Deploy Wrapper");
     const wrapper_conf = JSON.parse(
         fs.readFileSync(
             path.join(
@@ -26,6 +27,7 @@ export default async function deployWrapper(): Promise<string> {
         case "teth":
         case "tarb":
         case "tmat":
+            console.log("Uniswap wrapper");
             const UniswapWrapperFactory = (await ethers.getContractFactory(
                 "UniswapWrapper"
             )) as UniswapWrapper__factory;
@@ -37,6 +39,7 @@ export default async function deployWrapper(): Promise<string> {
             wrapperAddress = uniswapWrapper.address;
             break;
         case "top":
+            console.log("Velodrome wrapper");
             const VelodromeWrapperFactory = (await ethers.getContractFactory(
                 "VelodromeWrapper"
             )) as VelodromeWrapper__factory;
@@ -52,6 +55,8 @@ export default async function deployWrapper(): Promise<string> {
     }
 
     assert(wrapperAddress !== "", "Wrapper was not deployed");
+
+    console.log("Wrapper address: %s", wrapperAddress);
 
     return wrapperAddress;
 }
