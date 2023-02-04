@@ -1,30 +1,24 @@
 import { UniswapWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory";
 import { ethers } from "hardhat";
-import { UniswapWrapper } from "../../typechain-types/contracts/dex-wrappers/UniswapWrapper";
 import { EntangleSynthFactory__factory } from "../../typechain-types/factories/contracts/EntangleSynthFactory__factory";
-import { EntangleSynth__factory } from "../../typechain-types/factories/contracts/EntangleSynth__factory";
 import { EntangleDEXOnDemand__factory } from "../../typechain-types/factories/contracts/EntangleDEXOnDemand__factory";
 import { EntangleRouter__factory } from "../../typechain-types/factories/contracts/EntangleRouter.sol/EntangleRouter__factory";
 import { EntangleLending__factory } from "../../typechain-types/factories/contracts/EntangleLending__factory";
 import { EntanglePool__factory } from "../../typechain-types/factories/contracts/EntanglePool__factory";
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
-import hre from "hardhat";
+import { BaseSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/BaseSynthChef__factory";
+import deploySynthChef from "./deploySynthChef";
+import deployWrapper from "./deployWrapper";
 
-import { ArbitrumSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/ArbitrumSynthChef.sol";
 
 export default async function deploy(
-    WETH_ADDR: string,
-    STABLE_ADDR: string,
     BRIDGE_ADDR: string,
-    UNISWAP_ROUTER: string,
-    REWARD_TOKEN: string[],
-    FAUCET_ADDR: string
 ) {
-    const PID = 0;
+
+    const FEE_COLLECTOR = "0x493b11ee518590515b307f852650cb16483573c6";
 
     let owner = (await ethers.getSigners())[0];
-    let chainId = (await owner.provider?.getNetwork())?.chainId ?? 0;
 
     const LendingFactory = (await ethers.getContractFactory(
         "EntangleLending"
@@ -38,9 +32,7 @@ export default async function deploy(
     const UniswapWrapperFactory = (await ethers.getContractFactory(
         "UniswapWrapper"
     )) as UniswapWrapper__factory;
-    const ChefFactory = (await ethers.getContractFactory(
-        "ArbitrumSynthChef"
-    )) as ArbitrumSynthChef__factory;
+
     const SynthFactoryFactory = (await ethers.getContractFactory(
         "EntangleSynthFactory"
     )) as EntangleSynthFactory__factory;
@@ -54,38 +46,53 @@ export default async function deploy(
         "Pauser"
     )) as Pauser__factory;
 
-    let wrapper = (await UniswapWrapperFactory.deploy(
-        UNISWAP_ROUTER,
-        WETH_ADDR
-    )) as UniswapWrapper;
-    await wrapper.deployed();
-    let chef = await ChefFactory.deploy(
-        "0x53Bf833A5d6c4ddA888F69c22C88C9f356a41614", //router
-        wrapper.address, //dex interface
-        STABLE_ADDR, //stable
-        REWARD_TOKEN, //reward
-        "1", //fee
-        await owner.getAddress() //fee collector
-    );
-    await chef.deployed();
+    /*
+        DEPLOY WRAPPER
+    */
+    let wrapperAddress = await deployWrapper();
+
+    /*
+        DEPLOY CHEF
+    */
+    let {stableAddress, chefAddress, pids} = await deploySynthChef(wrapperAddress, FEE_COLLECTOR);
+    let chef = BaseSynthChef__factory.connect(chefAddress, owner);
+
+    /*
+        DEPLOY SYNTH FACTORY
+    */
     let factory = await SynthFactoryFactory.deploy();
     await factory.deployed();
 
+    /*
+        DEPLOY DEX on DEMAND
+    */
     let DEXonDemand = await DEXonDemandFactory.deploy(
         factory.address,
         chef.address
     );
     await DEXonDemand.deployed();
 
+    /*
+        DEPLOY LANDING
+    */
     let lending = await LendingFactory.deploy();
     await lending.deployed();
 
+    /*
+        DEPLOY POOL
+    */
     let pool = await PoolFactory.deploy();
     await pool.deployed();
 
-    let idex = await IDEXFactory.deploy(owner.getAddress());
+    /*
+        DEPLOY ENTANGLE DEX
+    */
+    let idex = await IDEXFactory.deploy(FEE_COLLECTOR);
     await idex.deployed();
 
+    /*
+        DEPLOY ROUTER
+    */
     let router = await RouterFactory.deploy(
         pool.address,
         idex.address,
@@ -98,41 +105,51 @@ export default async function deploy(
         2
     );
     await router.deployed();
+
+    /*
+        DEPLOY PAUSER
+    */
     let pauser = await PauserFactory.deploy(
-        [   
-            chef.address, 
-            factory.address, 
-            DEXonDemand.address, 
-            pool.address, 
-            idex.address, 
+        [
+            chef.address,
+            factory.address,
+            DEXonDemand.address,
+            pool.address,
+            idex.address,
             router.address,
             lending.address,
 
-        ]
-        );
-        await pauser.deployed();
+        ]);
+    await pauser.deployed();
 
-    await (await chef.grantRole(chef.ADMIN_ROLE(), owner.getAddress())).wait();
+    /*
+        GRANT ROLES
+    */
+    await (
+        await chef.grantRole(chef.ADMIN_ROLE(), await owner.getAddress())
+    ).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
-    await (await idex.grantRole(idex.ADMIN(), owner.getAddress())).wait();
+    await (await idex.grantRole(idex.ADMIN(), await owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.REBALANCER(), router.address)).wait();
     await (await idex.grantRole(idex.BUYER(), router.address)).wait();
-    await (await router.grantRole(router.ADMIN(), owner.getAddress())).wait();
+    await (
+        await router.grantRole(router.ADMIN(), await owner.getAddress())
+    ).wait();
     await (
         await lending.grantRole(lending.BORROWER_ROLE(), router.address)
     ).wait();
     await (await pool.grantRole(pool.DEPOSITER_ROLE(), router.address)).wait();
     await (
-        await pool.grantRole(pool.DEPOSITER_ROLE(), owner.getAddress())
+        await pool.grantRole(pool.DEPOSITER_ROLE(), await owner.getAddress())
     ).wait();
     await (
-        await factory.grantRole(factory.MINT_ROLE(), owner.getAddress())
+        await factory.grantRole(factory.MINT_ROLE(), await owner.getAddress())
     ).wait();
     await (
         await DEXonDemand.grantRole(
             DEXonDemand.ADMIN_ROLE(),
-            owner.getAddress()
+            await owner.getAddress()
         )
     ).wait();
     await (await chef.grantRole(chef.ADMIN_ROLE(), DEXonDemand.address)).wait();
@@ -149,17 +166,9 @@ export default async function deploy(
     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait();
 
-    await (await lending.authorizeLender(idex.address)).wait();
+    await (await lending.authorizeLender(idex.address)).wait()
 
-    await chef.addPool(
-        "0x892785f33CdeE22A30AEF750F285E18c18040c3e",
-        "0xeA8DfEE1898a7e0a59f7527F076106d7e44c2176",
-        "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-        0,
-        1
-    );
-
-    console.log("Wrapper:", wrapper.address);
+    console.log("Wrapper:", wrapperAddress);
     console.log("Synth chef:", chef.address);
     console.log("Factory:", factory.address);
     console.log("DEX on demand:", DEXonDemand.address);
@@ -169,7 +178,7 @@ export default async function deploy(
     console.log("Lending:", lending.address);
 
     return {
-        wrapper: wrapper.address,
+        wrapper: wrapperAddress,
         chef: chef.address,
         factory: factory.address,
         DEXonDemand: DEXonDemand.address,
@@ -177,9 +186,8 @@ export default async function deploy(
         idex: idex.address,
         pool: pool.address,
         lending: lending.address,
-        opToken: STABLE_ADDR,
+        opToken: stableAddress,
         bridge: BRIDGE_ADDR,
-        pauser: pauser.address,
-        faucet: FAUCET_ADDR
+        pauser: pauser.address
     };
 }
