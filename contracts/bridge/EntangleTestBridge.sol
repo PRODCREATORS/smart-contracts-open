@@ -86,8 +86,8 @@ contract EntangleTestBridge is AccessControl {
                 chainId,
                 token,
                 dx,
-                tokenIndexFrom,
-                tokenIndexTo,
+                swapTokenIndexFrom,
+                swapTokenIndexTo,
                 minDy,
                 deadline);
     }
