@@ -8,6 +8,7 @@ import { EntanglePool__factory } from "../../typechain-types/factories/contracts
 import { EntangleDEX__factory } from "../../typechain-types/factories/contracts/EntangleDEX__factory";
 import { Pauser__factory } from "../../typechain-types/factories/contracts/Pauser__factory";
 import { BaseSynthChef__factory } from "../../typechain-types/factories/contracts/synth-chefs/BaseSynthChef__factory";
+import { EntangleTestBridge__factory } from "../../typechain-types/factories/contracts/bridge/EntangleTestBridge__factory";
 import deploySynthChef from "./deploySynthChef";
 import deployWrapper from "./deployWrapper";
 
@@ -48,6 +49,10 @@ export default async function deployContracts(
         "Pauser"
     )) as Pauser__factory;
 
+    const EntangleTestBridgeFactory = (await ethers.getContractFactory(
+        "EntangleTestBridge"
+    )) as EntangleTestBridge__factory;
+    let bridge = BaseSynthChef__factory.connect(BRIDGE_ADDR, owner);
     /*
         DEPLOY WRAPPER
     */
@@ -127,6 +132,7 @@ export default async function deployContracts(
     /*
         GRANT ROLES
     */
+    await (await bridge.grantRole(bridge.ADMIN_ROLE(), router.address)).wait();
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.ADMIN(), await owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();

@@ -78,8 +78,9 @@ contract EntangleTestBridge is AccessControl {
         uint256 swapMinDy,
         uint256 swapDeadline
     ) external onlyRole(ADMIN_ROLE) {
-        token.safeTransferFrom(msg.sender, address(this), dx);
-        tokenStorage[address(token)] += dx;
+        IERC20 opToken = IERC20(idsToToken[tokenIndexFrom]);
+        opToken.safeTransferFrom(msg.sender, address(this), dx);
+        tokenStorage[address(opToken)] += dx;
 
         emit TokenRedeemAndSwap(to,
                 chainId,
