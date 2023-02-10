@@ -10,6 +10,7 @@ contract EntangleTestBridge is AccessControl {
 
     mapping(address => uint256) public tokenStorage;
     mapping(uint => address) public idsToToken;
+    uint256 kappa;
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN");
     bytes32 public constant OWNER_ROLE = keccak256("OWNER");
 
@@ -86,7 +87,7 @@ contract EntangleTestBridge is AccessControl {
                 chainId,
                 token,
                 dx,
-                swapTokenIndexFrom,
+                tokenIndexFrom,
                 swapTokenIndexTo,
                 minDy,
                 deadline);
@@ -105,8 +106,9 @@ contract EntangleTestBridge is AccessControl {
         require(idsToToken[tokenIndexTo] != address(0), "tokenIndexTo wasn't found");
         IERC20 tokenTo = IERC20(idsToToken[tokenIndexTo]);
         require(tokenStorage[address(tokenTo)] >= amount, "Not enought liquidity");
-        tokenTo.safeTransferFrom(address(this), to, amount);
+        tokenTo.safeTransfer(to, amount);
         tokenStorage[address(tokenTo)] -= amount;
+        kappa += 1;
 
         emit TokenMintAndSwap(to,
                 token,
@@ -117,7 +119,7 @@ contract EntangleTestBridge is AccessControl {
                 minDy,
                 deadline,
                 true,
-                0x00);
+                bytes32(kappa));
     }
 
 }
