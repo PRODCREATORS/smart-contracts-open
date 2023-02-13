@@ -11,7 +11,11 @@
     "ftm": "NETWORK=ftm NETWORK_URL=https://rpc.ankr.com/fantom CHAIN_ID=103 FROM_BLOCK=48883683 npx hardhat node --port 8544 ",
     "deploy": "npx hardhat run scripts/deploy.js",
     "update-prices": "npx hardhat run scripts/price-changer/index.ts",
-    "compile": "npx hardhat compile"
+    "compile": "npx hardhat compile",
+    "docker:build": "DOCKER_DEFAULT_PLATFORM=linux/amd64 docker build -t ent-smart-contracts .",
+    "docker:tag": "docker tag ent-smart-contracts:latest 899260217834.dkr.ecr.us-east-1.amazonaws.com/ent-smart-contracts:latest",
+    "docker:push": "docker push 899260217834.dkr.ecr.us-east-1.amazonaws.com/ent-smart-contracts:latest",
+    "docker:upload": "npm run docker:build && npm run docker:tag && npm run docker:push"
   },
   "author": "",
   "license": "ISC",

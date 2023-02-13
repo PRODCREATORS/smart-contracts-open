@@ -47,6 +47,13 @@ export const synthInfo = {
             "chainId": "43114",
             "pid": "8"
         },
+        teth: {
+            "chainId": "1",
+            "pid": "0",
+            "factory": "0x6CFdbf0B52c677379f19f978780F6EDDc8d37DFe",
+            "stable": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "chef": "0xE892434C26FF82db5dd6d8E1585D2c63f7c348A3",
+        }
 
 }
 

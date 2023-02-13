@@ -129,7 +129,7 @@ const _synthInfo = _.merge(synthInfo, getSynthInfo());
 async function main() {
   const networks = Config.networks!;
   // Assume all test nets prefixed with the `t`
-  const testnets = Object.fromEntries(Object.entries(networks).filter(([k,v]) => k.startsWith('t') && k !== 'teth')) as TestnetConfigT
+  const testnets = Object.fromEntries(Object.entries(networks).filter(([k,v]) => k.startsWith('t'))) as TestnetConfigT
 
   console.log(testnets);
   while(1) {
@@ -194,7 +194,7 @@ async function main() {
       }
     }
 
-    await sleep(20000);
+    await sleep(300000);
   }
 }
 
