@@ -1,4 +1,3 @@
-import { UniswapWrapper__factory } from "../../typechain-types/factories/contracts/dex-wrappers/UniswapWrapper__factory";
 import { ethers } from "hardhat";
 import { EntangleSynthFactory__factory } from "../../typechain-types/factories/contracts/EntangleSynthFactory__factory";
 import { EntangleDEXOnDemand__factory } from "../../typechain-types/factories/contracts/EntangleDEXOnDemand__factory";
@@ -32,10 +31,6 @@ export default async function deployContracts(
     const RouterFactory = (await ethers.getContractFactory(
         "EntangleRouter"
     )) as EntangleRouter__factory;
-    const UniswapWrapperFactory = (await ethers.getContractFactory(
-        "UniswapWrapper"
-    )) as UniswapWrapper__factory;
-
     const SynthFactoryFactory = (await ethers.getContractFactory(
         "EntangleSynthFactory"
     )) as EntangleSynthFactory__factory;
@@ -49,10 +44,6 @@ export default async function deployContracts(
         "Pauser"
     )) as Pauser__factory;
 
-    const EntangleTestBridgeFactory = (await ethers.getContractFactory(
-        "EntangleTestBridge"
-    )) as EntangleTestBridge__factory;
-    let bridge = BaseSynthChef__factory.connect(BRIDGE_ADDR, owner);
     /*
         DEPLOY WRAPPER
     */
@@ -132,7 +123,11 @@ export default async function deployContracts(
     /*
         GRANT ROLES
     */
+    // FIXME: remove for mainnet
+    let bridge = EntangleTestBridge__factory.connect(BRIDGE_ADDR, owner);
     await (await bridge.grantRole(bridge.ADMIN_ROLE(), router.address)).wait();
+
+
     await (await chef.grantRole(chef.BORROWER_ROLE(), lending.address)).wait();
     await (await idex.grantRole(idex.ADMIN(), await owner.getAddress())).wait();
     await (await idex.grantRole(idex.BORROWER_ROLE(), lending.address)).wait();

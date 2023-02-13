@@ -15,10 +15,9 @@ import path from "path";
 
 export default async function deploySynthChef(wrapperAddress: string, feeCollector: string) {
 
+    console.log("Deploy SynthChef");
     const network = hre.network.name;
     let owner = (await ethers.getSigners())[0];
-
-    console.log("Deploy SynthChef for %s", network);
 
     const chefs_config = JSON.parse(
         fs.readFileSync(
@@ -261,7 +260,7 @@ export default async function deploySynthChef(wrapperAddress: string, feeCollect
         }
 
         default:
-            alert("deploySynthChef: unavailable network:" + hre.network.name);
+            throw("deploySynthChef: unavailable network:" + network);
     }
 
     assert(chefAddress !== "", "SynthChef was not deployed");

@@ -9,6 +9,8 @@ export default async function deployTestBridge() {
     const config = JSON.parse(fs.readFileSync(path.join(__dirname, "bridge_config", "bridge_config.json")).toString());
 
     console.log('Deploy Bridge');
+    const network = hre.network.name;
+
     const BridgeFactory = (await ethers.getContractFactory(
          "EntangleTestBridge"
     )) as EntangleTestBridge__factory;
@@ -18,7 +20,7 @@ export default async function deployTestBridge() {
     await (await bridge.grantRole(bridge.ADMIN_ROLE(), config.bridgeKeeperAddress)).wait();
 
     for (const token in config["tokens"]) {
-        let token_conf = config["tokens"][token]["networks"][hre.network.name];
+        let token_conf = config["tokens"][token]["networks"][network];
         let id = token_conf["id"];
         let address = token_conf["address"];
         await (await bridge.addTokenId(id, address)).wait();

@@ -10,6 +10,7 @@ import path from "path";
 
 export default async function deployWrapper(): Promise<string> {
     console.log("Deploy Wrapper");
+    const network = hre.network.name;
     const wrapper_conf = JSON.parse(
         fs.readFileSync(
             path.join(
@@ -20,7 +21,7 @@ export default async function deployWrapper(): Promise<string> {
 
     let wrapperAddress: string = "";
 
-    switch(hre.network.name) {
+    switch(network) {
         case "tftm":
         case "tavax":
         case "tbsc":
@@ -32,8 +33,8 @@ export default async function deployWrapper(): Promise<string> {
                 "UniswapWrapper"
             )) as UniswapWrapper__factory;
             const uniswapWrapper = (await UniswapWrapperFactory.deploy(
-                wrapper_conf[hre.network.name].routerAddress,
-                wrapper_conf[hre.network.name].wNative
+                wrapper_conf[network].routerAddress,
+                wrapper_conf[network].wNative
             ));
             await uniswapWrapper.deployed();
             wrapperAddress = uniswapWrapper.address;
@@ -44,14 +45,14 @@ export default async function deployWrapper(): Promise<string> {
                 "VelodromeWrapper"
             )) as VelodromeWrapper__factory;
             const velodromWrapper = (await VelodromeWrapperFactory.deploy(
-                wrapper_conf[hre.network.name].routerAddress
+                wrapper_conf[network].routerAddress
             ));
             await velodromWrapper.deployed();
             wrapperAddress = velodromWrapper.address;
             break;
 
         default:
-            alert("deployWrapper: unavailable network:" + hre.network.name);
+            throw("deployWrapper: unavailable network:" + network);
     }
 
     assert(wrapperAddress !== "", "Wrapper was not deployed");
