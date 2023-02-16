@@ -17,7 +17,7 @@ export default async function deployTestBridge() {
 
     let bridge = await BridgeFactory.deploy();
     await bridge.deployed();
-    await (await bridge.grantRole(bridge.ADMIN_ROLE(), config.bridgeKeeperAddress)).wait();
+    await (await bridge.grantRole(await bridge.ADMIN_ROLE(), config.bridgeKeeperAddress)).wait();
 
     for (const token in config["tokens"]) {
         let token_conf = config["tokens"][token]["networks"][network];

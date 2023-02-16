@@ -166,7 +166,8 @@ export default async function deployContracts(
     await (await lending.grantRole(lending.PAUSER_ROLE(), pauser.address)).wait();
     await (await chef.grantRole(chef.PAUSER_ROLE(), pauser.address)).wait();
 
-    await (await lending.authorizeLender(idex.address)).wait()
+    await (await lending.authorizeLender(idex.address)).wait();
+    await (await lending.authorizeLender(chef.address)).wait();
 
     console.log("Wrapper:", wrapperAddress);
     console.log("Synth chef:", chef.address);

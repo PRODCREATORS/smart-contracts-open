@@ -12,6 +12,7 @@ import "./synth-chefs/BaseSynthChef.sol";
 import "./EntangleSynthFactory.sol";
 import "./EntanglePool.sol";
 import "./EntangleLending.sol";
+import "hardhat/console.sol";
 
 interface Ipool {
     function depositToken(uint256 amount) external;
@@ -83,7 +84,9 @@ contract EntangleRouter is PausableAccessControl {
         uint256 swapDeadline;
     }
 
-    event EventA(EventType _type, uint256 amount, uint256 pid, uint256 chainId, uint256 k);
+    // event EventA(EventType _type, uint256 amount, uint256 pid, , uint256 k);
+
+    event BuySell(EventType _type, uint256 amount, uint256 chainId, address chef, uint256 pid);
     event EventBC(EventType _type, uint256 amount, uint256 pid, uint256 chainId, address user);
 
     constructor(
@@ -119,6 +122,8 @@ contract EntangleRouter is PausableAccessControl {
         whenNotPaused
         returns (uint256 synthAmount)
     {
+        console.log("Router Buy");
+        require(amountOp > 0, "Zero amount");
         IERC20 opToken = synth.opToken();
         opToken.safeTransferFrom(msg.sender, address(this), amountOp);
         if (opToken.allowance(address(this), address(idex)) < amountOp) {
@@ -130,9 +135,12 @@ contract EntangleRouter is PausableAccessControl {
         ) {
             emit EventBC(EventType.BUY, amountOp, synth.pid(), synth.chainId(), msg.sender);
         } else {
+            console.log("idex buy");
             synthAmount = idex.buy(synth, amountOp);
+            console.log("transfer synths");
             synth.safeTransfer(msg.sender, synthAmount);
-            checkEventA(synth);
+            emit BuySell(EventType.BUY, amountOp, synth.chainId(), synth.synthChef(), synth.pid());
+            // checkEventA(synth);
         }
     }
 
@@ -141,6 +149,8 @@ contract EntangleRouter is PausableAccessControl {
         whenNotPaused
         returns (uint256 opTokenAmount)
     {
+        console.log("Router Sell");
+        require(amount > 0, "Zero amount");
         IERC20 opToken = synth.opToken();
         synth.safeTransferFrom(msg.sender, address(this), amount);
         if (synth.allowance(address(this), address(idex)) < amount) {
@@ -158,9 +168,16 @@ contract EntangleRouter is PausableAccessControl {
                 msg.sender
             );
         } else {
+            console.log("idex sell");
             opTokenAmount = idex.sell(synth, amount);
+            console.log("transfer synths");
             opToken.safeTransfer(msg.sender, opTokenAmount);
-            checkEventA(synth);
+            emit BuySell(EventType.SELL,
+                synth.convertSynthAmountToOpAmount(amount),
+                synth.chainId(),
+                synth.synthChef(),
+                synth.pid());
+            // checkEventA(synth);
         }
     }
 
@@ -242,39 +259,53 @@ contract EntangleRouter is PausableAccessControl {
             params.swapDeadline
         );
     }
-
+/*
     function checkEventA(EntangleSynth synth) public {
-        uint256 soldSynths = synth.totalSupply() -
-            synth.balanceOf(address(idex));
-        uint256 neededOpBalance = synth.convertSynthAmountToOpAmount(
-            soldSynths
-        );
-        if (neededOpBalance == 0) {
+        console.log("checkEventA");
+        uint256 maxSoldSynthOpAmount;
+        for (synth of synths)
+            uint256 soldSynthsOp =  synth.convertSynthAmountToOpAmount(
+                synth.totalSupply() - synth.balanceOf(address(idex))
+            );
+
+            if (soldSynthsOp > maxSoldSynthAmount) {
+                maxSoldSynthAmount = soldSynthsOp;
+            }
+        }
+        console.log("maxSoldSynthOpAmount: %d", maxSoldSynthOpAmount);
+        if (maxSoldSynthOpAmount == 0) {
             return;
         }
-        uint256 currentOpBalance = synth.opToken().balanceOf(address(idex));
-        uint256 k = (((currentOpBalance * 10**accuracy) / neededOpBalance) *
+
+        uint256 currentDexOpBalance = synth.opToken().balanceOf(address(idex));
+        console.log("currentDexOpBalance: %d", currentDexOpBalance);
+        uint256 k = (((currentDexOpBalance * 10**accuracy) / soldOpAmount) *
             10**zFactorDecimals) / zFactor;
+        console.log("k: %d", k);
+        uint256 neededOpBalance = (soldOpAmount * zFactor) / 10**zFactorDecimals;
+        uint256 alt_k = neededOpBalance * 10**accuracy / currentDexOpBalance;
+        console.log("k_alt: %d", alt_k);
         uint256 amountToRebalance;
         EventType _type;
         if (k == 10**accuracy) {
+            console.log("k == 10**accuracy");
             return;
         }
         if (k > 10**accuracy) {
-            amountToRebalance = currentOpBalance - 
-                (neededOpBalance * (10**zFactorDecimals - zFactor)) /
-                10**zFactorDecimals;
+            console.log("k > 10**accuracy");
+            amountToRebalance = currentDexOpBalance - neededOpBalance;
+            console.log("amountToRebalance: %d", amountToRebalance);
             _type = EventType.BUY;
         }
         if (k < 10**accuracy) {
-            amountToRebalance =
-                ((neededOpBalance * zFactor) / 10**zFactorDecimals) -
-                currentOpBalance;
+            console.log("k < 10**accuracy");
+            amountToRebalance = neededOpBalance - currentDexOpBalance;
+            console.log("amountToRebalance: %d", amountToRebalance);
             _type = EventType.SELL;
         }
         emit EventA(_type, amountToRebalance, synth.pid(), synth.chainId(), k);
     }
-
+*/
     function borrowAndDeposit(
         uint256 amount,
         IERC20 token,
