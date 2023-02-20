@@ -3,6 +3,7 @@ import hre from "hardhat";
 import deployContracts from "../deploy/deployContracts";
 import deployTestBridge from "../deploy/deployTestBridge";
 import deployFaucet from "../deploy/deployFaucet";
+import deployTestnetChecker from "../deploy/deployTestnetChecker";
 
 import fs from "fs";
 import path from "path";
@@ -57,6 +58,7 @@ export async function scaffold(net: string = hre.network.name) {
     let addresses;
     let BRIDGE_ADDR = "";
     let FAUCET_ADDR = "";
+    let TESTNET_CHECKER = "";
     if (isTestnet(net)) {
         // in case when we redeploy contracts in testnet - we can use deployed bridge and faucet
         if (fs.existsSync(`./scripts/deploy/addresses/${net}_addresses.json`)) {
@@ -79,13 +81,20 @@ export async function scaffold(net: string = hre.network.name) {
         else {
             FAUCET_ADDR = addresses.faucet;
         }
+
+        if (addresses.checker === "" || addresses.checker === undefined) {
+            TESTNET_CHECKER = await deployTestnetChecker();
+        }
+        else {
+            TESTNET_CHECKER = addresses.checker;
+        }
     }
     else {
         BRIDGE_ADDR = getBridgeAddress(net);
     }
 
     addresses = await deployContracts(BRIDGE_ADDR);
-    addresses = {...addresses, faucet: FAUCET_ADDR}
+    addresses = {...addresses, faucet: FAUCET_ADDR, checker: TESTNET_CHECKER}
     fs.writeFileSync(
         path.join(`./scripts/deploy/addresses/${net}_addresses.json`),
         JSON.stringify(addresses, null, 2)
