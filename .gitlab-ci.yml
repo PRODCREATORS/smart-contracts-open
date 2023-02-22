@@ -1,5 +1,7 @@
 stages:
   - trigger-rebuild-centralized-script
+  - build_and_push_to_aws
+  - clean_up_image 
 
 trigger-rebuild-centralized-script:
   stage: trigger-rebuild-centralized-script
