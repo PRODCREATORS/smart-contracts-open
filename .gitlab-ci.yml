@@ -17,7 +17,7 @@ trigger-rebuild-centralized-script:
       fi
 
 build_and_push_to_aws:
-    stage: push
+    stage: build_and_push_to_aws
     script:
         - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 899260217834.dkr.ecr.us-east-1.amazonaws.com
         - npm run docker:upload
@@ -25,7 +25,7 @@ build_and_push_to_aws:
         - linux
 
 clean_up_image:
-    stage: clean_up
+    stage: clean_up_image
     script:
         - docker rmi ent-smart-contracts:latest -f
         - docker rmi 899260217834.dkr.ecr.us-east-1.amazonaws.com/ent-smart-contracts:latest -f
