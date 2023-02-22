@@ -3,6 +3,8 @@ stages:
 
 trigger-rebuild-centralized-script:
   stage: trigger-rebuild-centralized-script
+  tags:
+    - linux
   script:
     - >
       if git diff --quiet HEAD~1 -- scripts/deploy/addresses; then
