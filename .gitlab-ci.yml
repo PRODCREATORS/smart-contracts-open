@@ -23,6 +23,9 @@ build_and_push_to_aws:
         - npm run docker:upload
     tags:
         - linux
+    only:
+        refs:
+        - testnet
 
 clean_up_image:
     stage: clean_up_image
@@ -31,3 +34,6 @@ clean_up_image:
         - docker rmi 899260217834.dkr.ecr.us-east-1.amazonaws.com/ent-smart-contracts:latest -f
     tags:
         - linux
+    only:
+        refs:
+        - testnet
