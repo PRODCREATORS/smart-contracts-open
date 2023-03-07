@@ -1,13 +1,14 @@
-# Sample Hardhat Project
+# Entangle.fi Smart Contracts mirror
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-GAS_REPORT=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+### Building
+```sh
+$ npm install
+$ npm run compile
 ```
+
+### Deploying
+Create a dotenv with a valid bep-39 `MNEMONIC` firs then
+```sh
+$ ./deploy_all.sh
+```
+
